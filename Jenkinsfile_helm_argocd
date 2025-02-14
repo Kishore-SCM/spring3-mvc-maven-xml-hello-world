@@ -54,7 +54,7 @@ pipeline {
                     sh 'echo "Checking AWS CLI..."; aws --version || echo "AWS CLI is not installed!"'
                 }
             }
-
+         }
         stage('Clone Application Repository') {
             steps {
                 container('git') {
