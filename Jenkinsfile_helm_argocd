@@ -128,11 +128,11 @@ pipeline {
                          sh """
                             echo "Cloning Helm repository..."
                              mkdir -p /home/jenkins/.ssh
-                             #chmod 700 /home/jenkins/.ssh
-                             #cp /home/jenkins/.ssh/id_rsa /home/jenkins/.ssh/id_rsa
-                             #chmod 600 /home/jenkins/.ssh/id_rsa
+                             chmod 700 /home/jenkins/.ssh
+                             cp /home/jenkins/.ssh/id_rsa /home/jenkins/.ssh/id_rsa
+                             chmod 600 /home/jenkins/.ssh/id_rsa
                              ssh-keyscan -t rsa github.com >> /home/jenkins/.ssh/known_hosts
-                             #chmod 644 /home/jenkins/.ssh/known_hosts
+                             chmod 644 /home/jenkins/.ssh/known_hosts
                              eval `ssh-agent -s`
                              ssh-add /home/jenkins/.ssh/id_rsa
                              rm -rf ${HELM_CHART_DIR}
