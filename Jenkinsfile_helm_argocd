@@ -193,7 +193,7 @@ stage('Deploy ArgoCD Application') {
         }
     }
 }
-
+}
 
     post {
         success {
