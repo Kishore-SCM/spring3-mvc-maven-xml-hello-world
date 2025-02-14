@@ -128,6 +128,10 @@ pipeline {
                          sh """
                             echo "Cloning Helm repository..."
                              #chmod 600 /root/.ssh/id_rsa
+                             ssh-keyscan -t rsa github.com >> /root/.ssh/known_hosts
+                             chmod 644 /root/.ssh/known_hosts
+                             eval `ssh-agent -s`
+                             ssh-add /root/.ssh/id_rsa
                              rm -rf ${HELM_CHART_DIR}
                              git clone ${HELM_REPO} ${HELM_CHART_DIR}
                              echo "Updating Helm values.yaml with new Docker image..."                     
