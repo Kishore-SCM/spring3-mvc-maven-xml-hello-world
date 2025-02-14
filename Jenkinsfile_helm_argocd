@@ -137,7 +137,7 @@ pipeline {
                              eval `ssh-agent -s`
                              ssh-add /home/jenkins/.ssh/id_ed25519
                              rm -rf ${HELM_CHART_DIR}
-                             ssh -i /home/jenkins/.ssh/id_ed25519 -o UserKnownHostsFile=/home/jenkins/.ssh/known_hosts" git clone ${HELM_REPO} ${HELM_CHART_DIR}
+                             GIT_CLONE_COMMAND="ssh -i /home/jenkins/.ssh/id_ed25519 -o UserKnownHostsFile=/home/jenkins/.ssh/known_hosts" git clone ${HELM_REPO} ${HELM_CHART_DIR}
                              echo "Updating Helm values.yaml with new Docker image..."                     
                              ls -ltr
                              cd ${HELM_CHART_DIR}  
@@ -151,7 +151,7 @@ pipeline {
                              git config user.name "Jenkins CI"
                              git add ${HELM_VALUES_FILE}
                              git commit -m "Updated image to ${DOCKER_IMAGE}"
-                             ssh -i /home/jenkins/.ssh/id_ed25519 -o UserKnownHostsFile=/home/jenkins/.ssh/known_hosts" git push origin master
+                             GIT_PUSH_COMMAND="ssh -i /home/jenkins/.ssh/id_ed25519 -o UserKnownHostsFile=/home/jenkins/.ssh/known_hosts" git push origin master
                          """
 
                      }
