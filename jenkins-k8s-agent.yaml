@@ -39,7 +39,9 @@ spec:
     - name: aws-cli
       image: amazon/aws-cli
       command:
-        - cat
+        - sh
+        - -c
+        - "apk add --no-cache docker && cat"
       tty: true
   volumes:
     - name: docker-socket
