@@ -42,6 +42,9 @@ spec:
         - name: ssh-key
           mountPath: /home/jenkins/.ssh
           readOnly: false
+        - name: ssh-volume  
+          mountPath: /home/jenkins/.ssh
+          readOnly: false
     - name: aws-cli
       image: amazon/aws-cli
       command:
@@ -59,4 +62,6 @@ spec:
     - name: ssh-key
       secret:
         secretName: jenkins-ssh-key
+    - name: ssh-volume 
+      emptyDir: {}
         
