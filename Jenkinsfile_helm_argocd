@@ -38,7 +38,7 @@ pipeline {
                     sh 'echo "Checking Maven..."; mvn -version || echo "Maven is not installed!"'
                 }
                 
-                container('jnlp') {
+                container('java8') {
                     sh 'echo "Checking Java..."; java -version || echo "Java is not installed!"'
                 }
                 
