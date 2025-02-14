@@ -8,11 +8,11 @@ pipeline {
     environment {
         AWS_REGION = "ap-south-1"
         ECR_REPO_NAME = "springapp-helm"
+        ECR_REGISTRY = "060795946012.dkr.ecr.ap-south-1.amazonaws.com"
         IMAGE_TAG = "latest"
         DOCKER_IMAGE = " 060795946012.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${IMAGE_TAG}"
         APP_REPO = "https://github.com/jmstechhome28/spring3-mvc-maven-xml-hello-world.git"
         //HELM_REPO = "git@github.com:your-org/helm-repo.git"
-
         HELM_CHART_DIR = "springapp-chart"
         HELM_VALUES_FILE = "values.yaml"
         ARGOCD_APP_NAME = "springapp"
@@ -75,40 +75,36 @@ pipeline {
             }
            }
      }
+        stage('Login to AWS ECR') {
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
+                    script {
+                        container('aws-cli') {  
+                            echo "Fetching AWS ECR login password..."
+                            sh '''
+                            export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+                            export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
 
-stage('Login to AWS ECR') {
-    steps {
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
-            script {
-                container('aws-cli') {  
-                    echo "Fetching AWS ECR login password..."
-                    sh '''
-                    export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-                    export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-                    export AWS_REGION=ap-south-1
-                    
-                    # Get AWS ECR login password and store it in a file
-                    aws ecr get-login-password --region ${AWS_REGION} > /tmp/ecr_password.txt
-                    '''
-                }
-
-                container('docker') {  
-                    echo "Logging into AWS ECR..."
-                    sh '''
-                    export AWS_REGION=ap-south-1
-                    export ECR_REGISTRY=060795946012.dkr.ecr.ap-south-1.amazonaws.com
-                    export IMAGE_NAME=springapp-helm:latest
-                    
-                    # Read stored AWS ECR password and log into ECR
-                    cat /tmp/ecr_password.txt | docker login --username AWS --password-stdin ${ECR_REGISTRY}
-                    '''
+                            # Get AWS ECR login password and store it in a shared volume
+                            aws ecr get-login-password --region ${AWS_REGION} > /shared/ecr_password.txt
+                            chmod 600 /shared/ecr_password.txt
+                            '''
+                        }
+                        container('docker') {  
+                            echo "Logging into AWS ECR..."
+                            sh '''
+                            if [ -f /shared/ecr_password.txt ]; then
+                                cat /shared/ecr_password.txt | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                            else
+                                echo "Error: ECR password file not found!"
+                                exit 1
+                            fi
+                            '''
+                        }
+                    }
                 }
             }
         }
-    }
-}
-
-
 
 
     stage('Build and Push Docker Image') {
