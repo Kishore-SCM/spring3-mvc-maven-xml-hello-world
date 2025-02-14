@@ -129,14 +129,15 @@ pipeline {
                             echo "Cloning Helm repository..."
                              mkdir -p /home/jenkins/.ssh
                              chmod 700 /home/jenkins/.ssh
-                             cp /home/jenkins/.ssh/id_rsa /home/jenkins/.ssh/id_rsa
-                             chmod 600 /home/jenkins/.ssh/id_rsa
-                             ssh-keyscan -t rsa github.com >> /home/jenkins/.ssh/known_hosts
+                             cp /ssh-key/id_ed25519 /home/jenkins/.ssh/id_ed25519
+                             cp /ssh-key/id_ed25519.pub /home/jenkins/.ssh/id_ed25519.pub
+                             chmod 600 /home/jenkins/.ssh/id_ed25519
+                             ssh-keyscan -t ed25519 github.com >> /home/jenkins/.ssh/known_hosts
                              chmod 644 /home/jenkins/.ssh/known_hosts
                              eval `ssh-agent -s`
-                             ssh-add /home/jenkins/.ssh/id_rsa
+                             ssh-add /home/jenkins/.ssh/id_ed25519
                              rm -rf ${HELM_CHART_DIR}
-                             git clone ${HELM_REPO} ${HELM_CHART_DIR}
+                             GIT_SSH_COMMAND="ssh -i /home/jenkins/.ssh/id_ed25519 -o UserKnownHostsFile=/home/jenkins/.ssh/known_hosts" git clone ${HELM_REPO} ${HELM_CHART_DIR}
                              echo "Updating Helm values.yaml with new Docker image..."                     
                              ls -ltr
                              cd ${HELM_CHART_DIR}  
