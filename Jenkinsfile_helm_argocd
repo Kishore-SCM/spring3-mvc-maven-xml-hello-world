@@ -59,7 +59,7 @@ pipeline {
                 container('git') {
                     script {
                         echo "Cloning application repository..."
-                        git branch: 'main', url: "${APP_REPO}"
+                        git branch: 'master', url: "${APP_REPO}", credentialsId: 'github-credentials'
                     }
                 }
             }
