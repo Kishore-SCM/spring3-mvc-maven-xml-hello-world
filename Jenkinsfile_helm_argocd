@@ -127,12 +127,14 @@ pipeline {
                      script {
                          echo "Cloning Helm repository..."
                          sh 'rm -rf ${HELM_CHART_DIR}'
-                         git branch: 'master', url: "${HELM_REPO}", credentialsId: 'github-credentials'
+                         git clone ${HELM_REPO} ${HELM_CHART_DIR}
                          sh """
-                             echo "Updating Helm values.yaml with new Docker image..."
-                             apk add --no-cache bash sed 
+                             echo "Updating Helm values.yaml with new Docker image..."                     
                              ls -ltr
-                             cd ${HELM_CHART_DIR}         
+                             cd ${HELM_CHART_DIR}  
+                             git fetch --all
+                             git checkout master
+                             apk add --no-cache bash sed 
                              sed -i 's|tag: .*|tag: "latest"|' values.yaml
                              echo "Committing and pushing Helm changes..."
                              git config user.email "jmstechhome28@gmail.com"
