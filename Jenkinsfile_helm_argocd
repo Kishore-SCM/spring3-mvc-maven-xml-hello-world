@@ -127,11 +127,14 @@ pipeline {
                      script {
                          sh """
                             echo "Cloning Helm repository..."
-                             #chmod 600 /root/.ssh/id_rsa
-                             ssh-keyscan -t rsa github.com >> /root/.ssh/known_hosts
-                             chmod 644 /root/.ssh/known_hosts
+                             mkdir -p /home/jenkins/.ssh
+                             chmod 700 /home/jenkins/.ssh
+                             cp /home/jenkins/.ssh/id_rsa /home/jenkins/.ssh/id_rsa
+                             chmod 600 /home/jenkins/.ssh/id_rsa
+                             ssh-keyscan -t rsa github.com >> /home/jenkins/.ssh/known_hosts
+                             chmod 644 /home/jenkins/.ssh/known_hosts
                              eval `ssh-agent -s`
-                             ssh-add /root/.ssh/id_rsa
+                             ssh-add /home/jenkins/.ssh/id_rsa
                              rm -rf ${HELM_CHART_DIR}
                              git clone ${HELM_REPO} ${HELM_CHART_DIR}
                              echo "Updating Helm values.yaml with new Docker image..."                     
