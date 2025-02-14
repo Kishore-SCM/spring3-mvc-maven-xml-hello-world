@@ -46,8 +46,6 @@ spec:
           yum install -y docker &&
           service docker start &&
           cat
-      securityContext:
-        privileged: true
       tty: true
   volumes:
     - name: docker-socket
