@@ -59,6 +59,10 @@ stage('Get Latest GitHub Release Tag') {
     steps {
         container('git') {
             script {
+               echo "Installing required dependencies (curl & jq)..."
+                sh '''
+                apk add --no-cache curl jq  # ✅ Install curl & jq inside Alpine-based Git container
+                '''
                 echo "Fetching latest GitHub release tag..."
                 env.GITHUB_RELEASE_TAG = sh(
                     script: "curl -s https://api.github.com/repos/jmstechhome28/spring3-mvc-maven-xml-hello-world/releases/latest | jq -r '.tag_name'",
