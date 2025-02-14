@@ -9,7 +9,7 @@ pipeline {
         AWS_REGION = "ap-south-1"
         ECR_REPO_NAME = "springapp-helm"
         ECR_REGISTRY = "060795946012.dkr.ecr.ap-south-1.amazonaws.com"
-        IMAGE_TAG = "latest"
+        IMAGE_TAG = ${GITHUB_RELEASE_TAG}
         DOCKER_IMAGE = " 060795946012.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${IMAGE_TAG}"
         APP_REPO = "https://github.com/jmstechhome28/spring3-mvc-maven-xml-hello-world.git"
         HELM_REPO = "git@github.com:jmstechhome28/springapp-helm.git" 
@@ -54,6 +54,22 @@ pipeline {
                 }
             }
          }
+
+stage('Get Latest GitHub Release Tag') {
+    steps {
+        container('git') {
+            script {
+                echo "Fetching latest GitHub release tag..."
+                env.GITHUB_RELEASE_TAG = sh(
+                    script: "curl -s https://api.github.com/repos/jmstechhome28/spring3-mvc-maven-xml-hello-world/releases/latest | jq -r '.tag_name'",
+                    returnStdout: true
+                ).trim()
+                echo "Latest release tag: ${env.GITHUB_RELEASE_TAG}"
+            }
+        }
+    }
+}
+
         stage('Clone Application Repository') {
             steps {
                 container('git') {
@@ -149,12 +165,12 @@ pipeline {
                              git pull origin master || true
                              git checkout master
                              apk add --no-cache bash sed 
-                             sed -i 's|tag: .*|tag: "latest"|' values.yaml
+                             sed -i 's|tag: .*|tag: "${GITHUB_RELEASE_TAG}"|' values.yaml
                              echo "Committing and pushing Helm changes..."
                              git config user.email "jmstechhome28@gmail.com"
                              git config user.name "Jenkins CI"
                              git add ${HELM_VALUES_FILE}
-                             git commit -m "Updated image to ${DOCKER_IMAGE}"
+                             git commit -m "Updated image to ${GITHUB_RELEASE_TAG}"
                              git push origin master
                          """
 
