@@ -179,20 +179,21 @@ stage('Get Latest GitHub Release Tag') {
              }
          }
 
-    //     stage('Trigger ArgoCD Sync') {
-    //         steps {
-    //             container('helm') {
-    //                 script {
-    //                     echo "Triggering ArgoCD sync..."
-    //                     sh """
-    //                         argocd app sync ${ARGOCD_APP_NAME}
-    //                         argocd app wait ${ARGOCD_APP_NAME} --health
-    //                     """
-    //                 }
-    //             }
-    //         }
-    //     }
-     }
+stage('Deploy ArgoCD Application') {
+    steps {
+        container('argocd') {
+            script {
+                echo "Deploying ArgoCD application..."
+                sh '''
+                kubectl apply -f ${HELM_CHART_DIR}/argocd-app.yaml -n argocd
+                argocd app sync springapp
+                argocd app wait springapp --health
+                '''
+            }
+        }
+    }
+}
+
 
     post {
         success {
