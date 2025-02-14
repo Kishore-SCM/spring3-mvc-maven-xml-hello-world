@@ -6,17 +6,16 @@ pipeline {
     }
 
     environment {
-        AWS_REGION = "us-east-1"
-        ECR_REPO_NAME = "your-app"
+        AWS_REGION = "ap-south-1"
+        ECR_REPO_NAME = "springapp-helm"
         IMAGE_TAG = "latest"
-        DOCKER_IMAGE = "your-account-id.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${IMAGE_TAG}"
-        
-        APP_REPO = "git@github.com:your-org/app-repo.git"
-        HELM_REPO = "git@github.com:your-org/helm-repo.git"
+        DOCKER_IMAGE = " 060795946012.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${IMAGE_TAG}"
+        APP_REPO = "https://github.com/jmstechhome28/spring3-mvc-maven-xml-hello-world.git"
+        //HELM_REPO = "git@github.com:your-org/helm-repo.git"
 
-        HELM_CHART_DIR = "your-app-chart"
+        HELM_CHART_DIR = "springapp-chart"
         HELM_VALUES_FILE = "values.yaml"
-        ARGOCD_APP_NAME = "your-app"
+        ARGOCD_APP_NAME = "springapp"
     }
 
     triggers {
@@ -66,41 +65,41 @@ pipeline {
             }
         }
 
-    //     stage('Build and Package App') {
-    //         steps {
-    //             container('maven') {
-    //                 script {
-    //                     echo "Building application using Maven..."
-    //                     sh 'mvn clean package -DskipTests'
-    //                 }
-    //             }
-    //         }
-    //     }
+       stage('Build and Package App') {
+           steps {
+             container('maven') {
+               script {
+                    echo "Building application using Maven..."
+                       sh 'mvn clean package -DskipTests'
+                  }
+            }
+           }
+     }
 
-    //     stage('Login to AWS ECR') {
-    //         steps {
-    //             container('aws-cli') {
-    //                 script {
-    //                     echo "Logging into AWS ECR..."
-    //                     sh 'aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${DOCKER_IMAGE}'
-    //                 }
-    //             }
-    //         }
-    //     }
+         stage('Login to AWS ECR') {
+           steps {
+                container('aws-cli') {
+                    script {
+                       echo "Logging into AWS ECR..."
+                        sh 'aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${DOCKER_IMAGE}'
+                   }
+                }
+          }
+       }
 
-    //     stage('Build and Push Docker Image') {
-    //         steps {
-    //             container('docker') {
-    //                 script {
-    //                     echo "Building Docker image..."
-    //                     sh 'docker build -t ${DOCKER_IMAGE} .'
+    stage('Build and Push Docker Image') {
+             steps {
+                container('docker') {
+                     script {
+                    echo "Building Docker image..."
+                       sh 'docker build -t ${DOCKER_IMAGE} .'
 
-    //                     echo "Pushing Docker image to ECR..."
-    //                     sh 'docker push ${DOCKER_IMAGE}'
-    //                 }
-    //             }
-    //         }
-    //     }
+                   echo "Pushing Docker image to ECR..."
+                      sh 'docker push ${DOCKER_IMAGE}'
+                     }
+              }
+           }
+       }
 
     //     stage('Clone Helm Repository') {
     //         steps {
