@@ -38,6 +38,10 @@ spec:
       command:
         - cat
       tty: true
+      volumeMounts:
+        - name: ssh-key
+          mountPath: /root/.ssh
+          readOnly: true
     - name: aws-cli
       image: amazon/aws-cli
       command:
@@ -52,3 +56,7 @@ spec:
         path: /var/run/docker.sock
     - name: shared-workspace
       emptyDir: {}
+    - name: ssh-key
+      secret:
+        secretName: jenkins-ssh-key
+        
