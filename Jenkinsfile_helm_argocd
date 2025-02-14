@@ -141,7 +141,7 @@ pipeline {
                              echo "Updating Helm values.yaml with new Docker image..."                     
                              ls -ltr
                              cd ${HELM_CHART_DIR}  
-                             git fetch --all
+                             #git fetch --all
                              git checkout master
                              apk add --no-cache bash sed 
                              sed -i 's|tag: .*|tag: "latest"|' values.yaml
