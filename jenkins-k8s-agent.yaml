@@ -50,6 +50,11 @@ spec:
       volumeMounts:
         - name: shared-workspace
           mountPath: /shared
+    - name: argocd
+      image: quay.io/argoproj/argocd:latest
+      command:
+        - cat
+      tty: true
   volumes:
     - name: docker-socket
       hostPath:
