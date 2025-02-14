@@ -24,32 +24,36 @@ pipeline {
     }
 
     stages {
-        stage('Check Prerequisites') {
+     stage('Check Prerequisites') {
             steps {
                 script {
                     echo "Checking if all required tools are installed..."
-                    sh '''
-                        echo "Checking Docker..."
-                        docker --version || echo "Docker is not installed!"
-
-                        echo "Checking Maven..."
-                        mvn -version || echo "Maven is not installed!"
-
-                        echo "Checking Java..."
-                        java -version || echo "Java is not installed!"
-
-                        echo "Checking Helm..."
-                        helm version || echo "Helm is not installed!"
-
-                        echo "Checking Git..."
-                        git --version || echo "Git is not installed!"
-
-                        echo "Checking AWS CLI..."
-                        aws --version || echo "AWS CLI is not installed!"
-                    '''
+                }
+                
+                container('docker') {
+                    sh 'echo "Checking Docker..."; docker --version || echo "Docker is not installed!"'
+                }
+                
+                container('maven') {
+                    sh 'echo "Checking Maven..."; mvn -version || echo "Maven is not installed!"'
+                }
+                
+                container('jnlp') {
+                    sh 'echo "Checking Java..."; java -version || echo "Java is not installed!"'
+                }
+                
+                container('helm') {
+                    sh 'echo "Checking Helm..."; helm version || echo "Helm is not installed!"'
+                }
+                
+                container('git') {
+                    sh 'echo "Checking Git..."; git --version || echo "Git is not installed!"'
+                }
+                
+                container('aws-cli') {
+                    sh 'echo "Checking AWS CLI..."; aws --version || echo "AWS CLI is not installed!"'
                 }
             }
-        }
 
         stage('Clone Application Repository') {
             steps {
