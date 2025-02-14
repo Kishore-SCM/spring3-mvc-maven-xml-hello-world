@@ -26,6 +26,8 @@ spec:
       volumeMounts:
         - name: docker-socket
           mountPath: /var/run/docker.sock
+        - name: shared-workspace
+          mountPath: /shared
     - name: helm
       image: alpine/helm:3.8.2
       command:
@@ -41,7 +43,12 @@ spec:
       command:
         - cat
       tty: true
+      volumeMounts:
+        - name: shared-workspace
+          mountPath: /shared
   volumes:
     - name: docker-socket
       hostPath:
         path: /var/run/docker.sock
+    - name: shared-workspace
+      emptyDir: {}
