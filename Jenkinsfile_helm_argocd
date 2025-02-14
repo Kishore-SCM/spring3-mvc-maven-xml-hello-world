@@ -127,7 +127,7 @@ pipeline {
                      script {
                          sh """
                             echo "Cloning Helm repository..."
-                             rm -rf ${HELM_CHART_DIR}'
+                             rm -rf ${HELM_CHART_DIR}
                              git clone ${HELM_REPO} ${HELM_CHART_DIR}
                              echo "Updating Helm values.yaml with new Docker image..."                     
                              ls -ltr
