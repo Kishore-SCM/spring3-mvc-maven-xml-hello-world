@@ -194,7 +194,7 @@ stage('Deploy ArgoCD Application') {
         }
     }
 }
-stage('Deploy ArgoCD Application') {
+stage('Sync ArgoCD Application') {
     steps {
         container('argocd') {
             script {
