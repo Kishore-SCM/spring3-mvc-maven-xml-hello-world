@@ -189,6 +189,7 @@ stage('Deploy ArgoCD Application') {
             script {
                 echo "Deploying ArgoCD application..."
                 sh '''
+                ls -ltr
                 kubectl config use-context ${env.KUBE_CONTEXT}
                 kubectl apply -f ${HELM_CHART_DIR}/argocd-app.yaml -n argocd
                 '''
@@ -200,7 +201,7 @@ stage('Sync ArgoCD Application') {
     steps {
         container('argocd') {
             script {
-                echo "Deploying ArgoCD application..."
+                echo "sync ArgoCD application..."
                 sh '''
                 argocd app sync springapp
                 argocd app wait springapp --health
