@@ -184,11 +184,12 @@ stage('Deploy ArgoCD Application') {
         container('kubectl') {
             script {
                 echo "Deploying ArgoCD application..."
-                sh '''
+                ls -ltr
+                sh """
                 ls -ltr
                 kubectl config use-context ${env.KUBE_CONTEXT}
                 kubectl apply -f ${HELM_CHART_DIR}/argocd-app.yaml -n argocd
-                '''
+                """
             }
         }
     }
@@ -198,10 +199,11 @@ stage('Sync ArgoCD Application') {
         container('argocd') {
             script {
                 echo "sync ArgoCD application..."
-                sh '''
+                ls -ltr
+                sh """
                 argocd app sync springapp
                 argocd app wait springapp --health
-                '''
+               """
             }
         }
     }
