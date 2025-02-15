@@ -13,7 +13,7 @@ pipeline {
         DOCKER_IMAGE = " 060795946012.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${IMAGE_TAG}"
         APP_REPO = "https://github.com/jmstechhome28/spring3-mvc-maven-xml-hello-world.git"
         HELM_REPO = "git@github.com:jmstechhome28/springapp-helm.git" 
-        HELM_CHART_DIR = "springapp-helm"
+        HELM_CHART_DIR = "springapp"
         HELM_VALUES_FILE = "values.yaml"
         ARGOCD_APP_NAME = "springapp"
         KUBE_CONTEXT = 'kubernetes-admin@kubernetes'
@@ -158,10 +158,10 @@ stage('Get Latest GitHub Release Tag') {
                              rm -rf ${HELM_CHART_DIR} || true
                              ls -ltr
                              export GIT_SSH_COMMAND="ssh -i /home/jenkins/.ssh/id_ed25519 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/home/jenkins/.ssh/known_hosts"
-                             git clone ${HELM_REPO} ${HELM_CHART_DIR}
+                             git clone ${HELM_REPO} springapp-helm
                              echo "Updating Helm values.yaml with new Docker image..."                     
                              ls -ltr
-                             cd ${HELM_CHART_DIR}  
+                             cd springapp-helm/${HELM_CHART_DIR}  
                              #git fetch --all
                              git pull origin master || true
                              git checkout master
@@ -187,7 +187,7 @@ stage('Deploy ArgoCD Application') {
                 sh """
                 ls -ltr
                 kubectl config use-context ${env.KUBE_CONTEXT}
-                kubectl apply -f ${HELM_CHART_DIR}/argocd-app.yaml -n argocd
+                kubectl apply -f springapp-helm/argocd-app.yaml -n argocd
                 """
             }
         }
