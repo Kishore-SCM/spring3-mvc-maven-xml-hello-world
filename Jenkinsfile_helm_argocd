@@ -16,6 +16,7 @@ pipeline {
         HELM_CHART_DIR = "springapp-helm"
         HELM_VALUES_FILE = "values.yaml"
         ARGOCD_APP_NAME = "springapp"
+        KUBE_CONTEXT = 'kubernetes-admin@kubernetes'
     }
 
     triggers {
@@ -188,6 +189,7 @@ stage('Deploy ArgoCD Application') {
             script {
                 echo "Deploying ArgoCD application..."
                 sh '''
+                kubectl config use-context ${env.KUBE_CONTEXT}
                 kubectl apply -f ${HELM_CHART_DIR}/argocd-app.yaml -n argocd
                 '''
             }
