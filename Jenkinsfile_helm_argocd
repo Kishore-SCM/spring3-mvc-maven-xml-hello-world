@@ -58,7 +58,7 @@ stage('Get Latest GitHub Release Tag') {
             script {
                echo "Installing required dependencies (curl & jq)..."
                 sh '''
-                apk add --no-cache curl jq  # ✅ Install curl & jq inside Alpine-based Git container
+                apk add --no-cache curl jq  
                 '''
                 echo "Fetching latest GitHub release tag..."
                 env.GITHUB_RELEASE_TAG = sh(
@@ -184,7 +184,6 @@ stage('Deploy ArgoCD Application') {
         container('kubectl') {
             script {
                 echo "Deploying ArgoCD application..."
-                ls -ltr
                 sh """
                 ls -ltr
                 kubectl config use-context ${env.KUBE_CONTEXT}
@@ -199,7 +198,6 @@ stage('Sync ArgoCD Application') {
         container('argocd') {
             script {
                 echo "sync ArgoCD application..."
-                ls -ltr
                 sh """
                 argocd app sync springapp
                 argocd app wait springapp --health
