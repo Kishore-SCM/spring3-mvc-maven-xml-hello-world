@@ -19,10 +19,6 @@ pipeline {
         KUBE_CONTEXT = 'kubernetes-admin@kubernetes'
     }
 
-    triggers {
-        pollSCM('* * * * *')  // Check for new commits every minute
-    }
-
     stages {
      stage('Check Prerequisites') {
             steps {
