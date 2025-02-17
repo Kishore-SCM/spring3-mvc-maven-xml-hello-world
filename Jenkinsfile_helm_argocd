@@ -9,6 +9,7 @@ pipeline {
         AWS_REGION = "ap-south-1"
         ECR_REPO_NAME = "springapp-helm"
         ECR_REGISTRY = "060795946012.dkr.ecr.ap-south-1.amazonaws.com"
+        GITHUB_RELEASE_TAG = ""
         IMAGE_TAG = "${GITHUB_RELEASE_TAG}"
         DOCKER_IMAGE = " 060795946012.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${IMAGE_TAG}"
         APP_REPO = "https://github.com/jmstechhome28/spring3-mvc-maven-xml-hello-world.git"
@@ -62,10 +63,10 @@ stage('Get Latest GitHub Release Tag') {
                 '''
                 echo "Fetching latest GitHub release tag..."
                 env.GITHUB_RELEASE_TAG = sh(
-                    script: "curl -s https://api.github.com/repos/jmstechhome28/spring3-mvc-maven-xml-hello-world/releases/latest | jq -r '.tag_name'",
-                    returnStdout: true
-                ).trim()
-                echo "Latest release tag: ${env.GITHUB_RELEASE_TAG}"
+                            script: "curl -s https://api.github.com/repos/jmstechhome28/spring3-mvc-maven-xml-hello-world/releases/latest | jq -r '.tag_name'",
+                            returnStdout: true
+                        ).trim()
+                        echo "Latest release tag: ${env.GITHUB_RELEASE_TAG}"
             }
         }
     }
