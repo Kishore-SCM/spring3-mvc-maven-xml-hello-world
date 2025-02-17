@@ -11,7 +11,7 @@ pipeline {
         ECR_REGISTRY = "060795946012.dkr.ecr.ap-south-1.amazonaws.com"
         GITHUB_RELEASE_TAG = ""
         IMAGE_TAG = "${GITHUB_RELEASE_TAG}"
-        DOCKER_IMAGE = " 060795946012.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${IMAGE_TAG}"
+        DOCKER_IMAGE = " 060795946012.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${GITHUB_RELEASE_TAG}"
         APP_REPO = "https://github.com/jmstechhome28/spring3-mvc-maven-xml-hello-world.git"
         HELM_REPO = "git@github.com:jmstechhome28/springapp-helm.git" 
         HELM_CHART_DIR = "springapp"
