@@ -56,21 +56,30 @@ pipeline {
 stage('Get Latest GitHub Release Tag') {
     steps {
         container('git') {
-            script {
-               echo "Installing required dependencies (curl & jq)..."
+                     script {
+                echo "Installing curl & jq in the container..."
                 sh '''
-                apk add --no-cache curl jq  
+                apk add --no-cache curl jq
                 '''
+
                 echo "Fetching latest GitHub release tag..."
                 env.GITHUB_RELEASE_TAG = sh(
-                            script: "curl -s https://api.github.com/repos/jmstechhome28/spring3-mvc-maven-xml-hello-world/releases/latest | jq -r '.tag_name'",
-                            returnStdout: true
-                        ).trim()
-                        echo "Latest release tag: ${env.GITHUB_RELEASE_TAG}"
+                    script: '''
+                    curl -s -H "Accept: application/vnd.github.v3+json" \
+                    https://api.github.com/repos/jmstechhome28/spring3-mvc-maven-xml-hello-world/releases/latest | jq -r '.tag_name'
+                    ''',
+                    returnStdout: true
+                ).trim()
+
+                if (!env.GITHUB_RELEASE_TAG || env.GITHUB_RELEASE_TAG == "null") {
+                    error "❌ ERROR: No valid release tag found! Ensure GitHub repository has a release."
+                }
+
+                echo "✅ Latest release tag: ${env.GITHUB_RELEASE_TAG}"
             }
         }
-    }
-}
+     }
+  }
 
         stage('Clone Application Repository') {
             steps {
