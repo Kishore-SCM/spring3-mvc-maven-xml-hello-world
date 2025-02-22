@@ -230,7 +230,7 @@ stage('Build and Push Docker Image') {
                 container('argocd') {
                     script {
                         echo "Syncing ArgoCD Application..."
-                    withCredentials([usernamePassword(credentialsId: 'argocd_credentials', usernameVariable: 'ARGOCD_USER', passwordVariable: 'ARGOCD_PASS')]) {
+            withCredentials([usernamePassword(credentialsId: 'argocd_credentials', usernameVariable: 'ARGOCD_USER', passwordVariable: 'ARGOCD_PASS')]) {
                         echo "Logging into ArgoCD..."
                         sh """
                             argocd login ${ARGOCD_URL} --insecure --grpc-web --username \$ARGOCD_USER --password \$ARGOCD_PASS
@@ -243,7 +243,6 @@ stage('Build and Push Docker Image') {
                 }
             }
         }
-  }
 
 
     post {
