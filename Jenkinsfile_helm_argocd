@@ -122,6 +122,7 @@ stage('Get Latest GitHub Release Tag') {
                             '''
                         }
                         container('kubectl') {
+                            sh '''
                             echo "Creating Kubernetes Secret for ECR..."
 
                             // Delete secret if it already exists
@@ -132,18 +133,16 @@ stage('Get Latest GitHub Release Tag') {
                                 sh "kubectl delete secret ${ECR_SECRET_NAME} -n ${KUBE_NAMESPACE}"
                             }
                             else
-                                sh '''
+                               
                                  kubectl create secret docker-registry ${ECR_SECRET_NAME} \
                                 --docker-server=${ECR_REGISTRY} \
                                 --docker-username=AWS \
                                 --docker-password="$(cat /shared/ecr_password.txt )" \
                                 -n ${KUBE_NAMESPACE}
                                  echo "Secret '${ECR_SECRET_NAME}' created successfully!"
-                            '''
-                                echo "Error: ECR password file not found! Secret object is not able to create"
-                            fi
-                            
-                            
+                                 exit 1
+                            fi 
+                            '''                       
                         }
                     }
                 }
