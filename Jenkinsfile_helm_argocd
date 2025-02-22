@@ -29,32 +29,24 @@ pipeline {
 
                 container('docker') {
                     sh 'echo "Checking Docker..."; docker --version || echo "Docker is not installed!"'
-                     sh 'echo "Checking Git..."; git --version || echo "Git is not installed!"'
                 }
-
                 container('maven') {
                     sh 'echo "Checking Maven..."; mvn -version || echo "Maven is not installed!"'
                 }
-
                 container('java8') {
                     sh 'echo "Checking Java..."; java -version || echo "Java is not installed!"'
                 }
-
                 container('helm') {
                     sh 'echo "Checking Helm..."; helm version || echo "Helm is not installed!"'
                 }
-
                 container('git') {
                     sh 'echo "Checking Git..."; git --version || echo "Git is not installed!"'
                 }
-
                 container('aws-cli') {
                     sh 'echo "Checking AWS CLI..."; aws --version || echo "AWS CLI is not installed!"'
                 }
             }
         }
-
-        // Stage 2: Debug Workspace
         stage('Debug Workspace') {
             steps {
                 script {
@@ -94,11 +86,6 @@ stage('Get Latest GitHub Release Tag') {
         }
     }
 }
-
-
-
-
-        // Stage 4: Clone Application Repository
         stage('Clone Application Repository') {
             steps {
                 container('git') {
@@ -110,7 +97,6 @@ stage('Get Latest GitHub Release Tag') {
             }
         }
 
-        // Stage 5: Build and Package App
         stage('Build and Package App') {
             steps {
                 container('maven') {
@@ -122,7 +108,6 @@ stage('Get Latest GitHub Release Tag') {
             }
         }
 
-        // Stage 6: Login to AWS ECR
         stage('Login to AWS ECR') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
@@ -151,7 +136,6 @@ stage('Get Latest GitHub Release Tag') {
             }
         }
 
-        // Stage 7: Build and Push Docker Image
 stage('Build and Push Docker Image') {
     steps {
         container('docker') {
@@ -169,8 +153,6 @@ stage('Build and Push Docker Image') {
 
                 // Read the variable from the file
                 def githubTag = sh(script: "cat $WORKSPACE/env_export | grep GITHUB_RELEASE_TAG | cut -d'=' -f2", returnStdout: true).trim()
-
-                // ✅ Pass it to subsequent steps using `withEnv`
                 withEnv(["GITHUB_RELEASE_TAG=${githubTag}"]) {
                     echo "🚀 Building Docker image with tag: ${GITHUB_RELEASE_TAG}..."
                     sh "docker build -t ${DOCKER_IMAGE}:${GITHUB_RELEASE_TAG} ."
@@ -256,27 +238,30 @@ stage('Deploy ArgoCD Application') {
         }
     }
 }
+    stage('Sync ArgoCD Application') {
+    steps {
+        container('argocd') {
+            script {
+                echo "Syncing ArgoCD application..."
 
+                withCredentials([string(credentialsId: 'ARGOCD_AUTH_TOKEN', variable: 'ARGOCD_TOKEN')]) {
+                    sh """
+                        export ARGOCD_SERVER=<your-argocd-server>
+                        export ARGOCD_TOKEN=${ARGOCD_TOKEN}
 
+                        # Login using token
+                        argocd login $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
 
+                        # Sync application
+                        argocd app sync ${ARGOCD_APP_NAME}
+                        argocd app wait ${ARGOCD_APP_NAME} --health
+                    """
+                }
+            }
+        }
+    }
+}
 
-
-
-
-        // Stage 10: Sync ArgoCD Application
-      //   stage('Sync ArgoCD Application') {
-       //      steps {
-          //       container('argocd') {
-           //          script {
-            //             echo "Syncing ArgoCD application..."
-           //              sh """
-           //              argocd app sync ${ARGOCD_APP_NAME}
-           //              argocd app wait ${ARGOCD_APP_NAME} --health
-            //             """
-            //         }
-           //      }
-          //   }
-       //  }
     }
 
     post {
