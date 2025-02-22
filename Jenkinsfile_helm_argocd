@@ -132,9 +132,6 @@ stage('Get Latest GitHub Release Tag') {
                                 sh "kubectl delete secret ${ECR_SECRET_NAME} -n ${KUBE_NAMESPACE}"
                             }
                             else
-                                echo "secret object is not found hebce create an secret object"
-                            // Create the secret
-                            if [ -f /shared/ecr_password.txt ]; then
                                 sh '''
                                  kubectl create secret docker-registry ${ECR_SECRET_NAME} \
                                 --docker-server=${ECR_REGISTRY} \
@@ -152,10 +149,7 @@ stage('Get Latest GitHub Release Tag') {
                     }
                 }
             }
-                        
-                    }
-                }
-            }
+  
         }
 
     stage('Build and Push Docker Image') {
