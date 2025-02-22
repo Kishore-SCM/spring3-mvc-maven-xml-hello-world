@@ -239,13 +239,13 @@ stage('Build and Push Docker Image') {
         // Stage 9: Deploy ArgoCD Application
 stage('Deploy ArgoCD Application') {
     steps {
-        timeout(time: 5, unit: 'MINUTES') { // Prevent indefinite hangs
+        timeout(time: 1, unit: 'MINUTES') { // Prevent indefinite hangs
             container('kubectl') {
                 script {
                     echo "Deploying ArgoCD application..."
                     
                     // Manually specify kubeconfig path if required
-                    def kubeconfig = "/root/.kube/config" // Adjust this path if needed
+                    def kubeconfig = "/home/jenkins/.kube" // Adjust this path if needed
 
                     sh """
                     export KUBECONFIG=${kubeconfig}
