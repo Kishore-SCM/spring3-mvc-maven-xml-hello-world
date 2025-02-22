@@ -99,7 +99,7 @@ stage('Get Latest GitHub Release Tag') {
             }
         }
 
-        stage('Login to AWS ECR') {
+        stage('Login to AWS ECR & create namespace & secret') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
                     script {
@@ -254,21 +254,6 @@ stage('Build and Push Docker Image') {
             steps {
                 container('kubectl') {
                     script {
-                        echo "Deploying Application..."
-                        def namespaceName = sh(script: "grep 'name:' ${WORKSPACE}/springapp-helm/springapp/namespace.yaml | awk '{print \$2}'", returnStdout: true).trim()
-
-                    // Check if namespace exists
-                    def namespaceExists = sh(script: "kubectl get namespace ${namespaceName} >/dev/null 2>&1 && echo 'yes' || echo 'no'", returnStdout: true).trim()
-
-                    if (namespaceExists == 'yes') {
-                        echo "Namespace '${namespaceName}' already exists. Skipping apply."
-                    } else {
-                        echo "Applying namespace configuration..."
-                        sh "kubectl apply -f ${WORKSPACE}/springapp-helm/springapp/namespace.yaml"
-                        echo "Namespace '${namespaceName}' created successfully!"
-                    }
-            
-                        sh "${WORKSPACE}/springapp-helm/springapp/create_ecr_secret.sh"
           
                         sh "kubectl apply -f ${WORKSPACE}/springapp-helm/argocd-app.yaml -n argocd --server-side --force-conflicts"
                     }
