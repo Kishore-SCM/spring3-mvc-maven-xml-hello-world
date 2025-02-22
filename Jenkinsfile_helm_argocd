@@ -57,6 +57,10 @@ pipeline {
     steps {
         container('git') {
             script {
+                echo "Installing curl & jq in the container..."
+                sh 'apk add --no-cache curl jq'
+
+                echo "Fetching latest GitHub release tag..."
                 echo "Fetching latest GitHub release tag..."
                 sh '''
                 export GITHUB_TAG=$(curl -s -H "Accept: application/vnd.github.v3+json" \
