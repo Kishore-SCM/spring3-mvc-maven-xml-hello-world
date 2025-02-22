@@ -63,10 +63,7 @@ spec:
       volumeMounts:
         - name: kubeconfig-volume
           mountPath: /home/jenkins/.kube
-  volumes:
-    - name: kubeconfig-volume
-      secret:
-        secretName: jenkins-kubeconfig
+
   volumes:
     - name: docker-socket
       hostPath:
