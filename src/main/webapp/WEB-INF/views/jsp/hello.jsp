@@ -56,7 +56,7 @@
 	</div>
 	<div class="col-md-4">
 		<h2>New Course</h2>
-		<p>Docker</p>
+		<p>HELM</p>
 		<p>
 			<a class="btn btn-default" href="#" role="button">View details</a>
 		</p>
