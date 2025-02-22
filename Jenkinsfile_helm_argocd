@@ -159,15 +159,15 @@ stage('Build and Push Docker Image') {
                 sh '''
                 if [ -f $WORKSPACE/env_vars ]; then
                     source $WORKSPACE/env_vars
-                    echo "✅ Reloaded GITHUB_RELEASE_TAG: $GITHUB_RELEASE_TAG"
+                    echo "Reloaded GITHUB_RELEASE_TAG: $GITHUB_RELEASE_TAG"
                     echo "GITHUB_RELEASE_TAG=$GITHUB_RELEASE_TAG" >> $WORKSPACE/env_export
                 else
-                    echo "⚠️ No env_vars file found!"
+                    echo " No env_vars file found!"
                     exit 1
                 fi
                 '''
 
-                // ✅ Read the variable from the file
+                // Read the variable from the file
                 def githubTag = sh(script: "cat $WORKSPACE/env_export | grep GITHUB_RELEASE_TAG | cut -d'=' -f2", returnStdout: true).trim()
 
                 // ✅ Pass it to subsequent steps using `withEnv`
@@ -191,10 +191,10 @@ stage('Build and Push Docker Image') {
     steps {
         container('git') {
             script {
-                // ✅ Read the stored GITHUB_RELEASE_TAG from the env file
+                // Read the stored GITHUB_RELEASE_TAG from the env file
                 def githubTag = sh(script: "cat $WORKSPACE/env_export | grep GITHUB_RELEASE_TAG | cut -d'=' -f2", returnStdout: true).trim()
 
-                // ✅ Use `withEnv` to pass it into the shell script
+                // Use `withEnv` to pass it into the shell script
                 withEnv(["GITHUB_RELEASE_TAG=${githubTag}"]) {
                     sh """
                     echo "Cloning Helm repository..."
@@ -243,33 +243,15 @@ stage('Deploy ArgoCD Application') {
             container('kubectl') {
                 script {
                     echo "Deploying ArgoCD application..."
-
- sh """
-    set -x  # Print each command before execution
-    echo "⚡ DEBUG: Listing workspace files"
-    ls -lah \${WORKSPACE} || true
-
-    echo "⚡ DEBUG: Creating writable kubeconfig directory"
-    mkdir -p /tmp/kubeconfig-writable || true
-
-    echo "⚡ DEBUG: Copying kubeconfig file"
-    cp /home/jenkins/.kube/kubeconfig /tmp/kubeconfig-writable/config || true
-
-    echo "⚡ DEBUG: Changing kubeconfig permissions"
-    chmod 600 /tmp/kubeconfig-writable/config || true
-
-    echo "⚡ DEBUG: Setting KUBECONFIG environment variable"
-    export KUBECONFIG=/tmp/kubeconfig-writable/config
-
-    echo "⚡ DEBUG: Checking Kubernetes configuration"
-    kubectl config view || true
-
-    echo "⚡ DEBUG: Checking Kubernetes nodes"
-    kubectl get nodes || true
-
-    echo "⚡ DEBUG: Applying ArgoCD application"
-    kubectl apply -v=8 -f \${WORKSPACE}/springapp-helm/argocd-app.yaml -n argocd || true
-"""
+                     sh """
+                            mkdir -p /tmp/kubeconfig-writable
+                            cp /home/jenkins/.kube/kubeconfig /tmp/kubeconfig-writable/config
+                            chmod 600 /tmp/kubeconfig-writable/config
+                            export KUBECONFIG=/tmp/kubeconfig-writable/config
+                            kubectl config view
+                            kubectl get nodes
+                            kubectl apply -v=8 -f \${WORKSPACE}/springapp-helm/argocd-app.yaml -n argocd
+            """
 
                 }
             }
