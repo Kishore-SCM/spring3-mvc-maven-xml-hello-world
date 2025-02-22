@@ -50,11 +50,6 @@ spec:
       volumeMounts:
         - name: shared-workspace
           mountPath: /shared
-    - name: argocd
-      image: quay.io/argoproj/argocd:latest
-      command:
-        - cat
-      tty: true
     - name: kubectl
       image: bitnami/kubectl:latest
       command:
@@ -65,7 +60,19 @@ spec:
       volumeMounts:
         - name: kubeconfig-volume
           mountPath: /home/jenkins/.kube
-
+    - name: argocd
+      image: quay.io/argoproj/argocd:latest
+      command:
+        - cat
+      tty: true
+      securityContext:
+      runAsUser: 0
+      volumeMounts:
+      - name: kubeconfig-volume
+        mountPath: /home/jenkins/.kube
+      env:
+        - name: KUBECONFIG
+          value: /home/jenkins/.kube/config
   volumes:
     - name: docker-socket
       hostPath:
