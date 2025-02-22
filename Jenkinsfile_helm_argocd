@@ -131,7 +131,8 @@ stage('Get Latest GitHub Release Tag') {
                                 echo "Secret '${ECR_SECRET_NAME}' already exists. Deleting it..."
                                 sh "kubectl delete secret ${ECR_SECRET_NAME} -n ${KUBE_NAMESPACE}"
                             }
-
+                            else
+                                echo "secret object is not found hebce create an secret object"
                             // Create the secret
                             if [ -f /shared/ecr_password.txt ]; then
                                 sh '''
@@ -142,8 +143,6 @@ stage('Get Latest GitHub Release Tag') {
                                 -n ${KUBE_NAMESPACE}
                                  echo "Secret '${ECR_SECRET_NAME}' created successfully!"
                             '''
-
-                            else
                                 echo "Error: ECR password file not found! Secret object is not able to create"
                                 exit 1
                             fi
