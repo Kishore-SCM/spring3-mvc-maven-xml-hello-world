@@ -235,16 +235,7 @@ stage('Build and Push Docker Image') {
         }
     }
 }
-stage('Test Basic Execution') {
-    steps {
-        container('kubectl') {
-            script {
-                echo "Checking if container runs shell commands"
-                sh "echo 'Hello from Jenkins'"
-            }
-        }
-    }
-}
+
         // Stage 9: Deploy ArgoCD Application
 stage('Deploy ArgoCD Application') {
     steps {
