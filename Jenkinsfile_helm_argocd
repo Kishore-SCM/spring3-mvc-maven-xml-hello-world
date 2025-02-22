@@ -4,66 +4,60 @@ pipeline {
             yamlFile 'jenkins-k8s-agent.yaml'
         }
     }
-
     environment {
         AWS_REGION = "ap-south-1"
         ECR_REPO_NAME = "springapp-helm"
         ECR_REGISTRY = "060795946012.dkr.ecr.ap-south-1.amazonaws.com"
         GITHUB_RELEASE_TAG = ""
-        IMAGE_TAG = "${GITHUB_RELEASE_TAG}"
-        DOCKER_IMAGE = " 060795946012.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${GITHUB_RELEASE_TAG}"
+        DOCKER_IMAGE = "${ECR_REGISTRY}/${ECR_REPO_NAME}"
         APP_REPO = "https://github.com/jmstechhome28/spring3-mvc-maven-xml-hello-world.git"
-        HELM_REPO = "git@github.com:jmstechhome28/springapp-helm.git" 
+        HELM_REPO = "git@github.com:jmstechhome28/springapp-helm.git"
         HELM_CHART_DIR = "springapp"
         HELM_VALUES_FILE = "values.yaml"
         ARGOCD_APP_NAME = "springapp"
         KUBE_CONTEXT = 'kubernetes-admin@kubernetes'
+        KUBECONFIG = "/home/jenkins/.kube/config"
+        ARGOCD_URL= "3.110.208.168:30421"
+        ECR_SECRET_NAME = "ecr-secret"
+        KUBE_NAMESPACE = "springapp"
     }
 
     stages {
-     stage('Check Prerequisites') {
+        stage('Check Prerequisites') {
             steps {
                 script {
                     echo "Checking if all required tools are installed..."
                 }
-                
+
                 container('docker') {
                     sh 'echo "Checking Docker..."; docker --version || echo "Docker is not installed!"'
                 }
-                
                 container('maven') {
                     sh 'echo "Checking Maven..."; mvn -version || echo "Maven is not installed!"'
                 }
-                
                 container('java8') {
                     sh 'echo "Checking Java..."; java -version || echo "Java is not installed!"'
                 }
-                
                 container('helm') {
                     sh 'echo "Checking Helm..."; helm version || echo "Helm is not installed!"'
                 }
-                
                 container('git') {
                     sh 'echo "Checking Git..."; git --version || echo "Git is not installed!"'
                 }
-                
                 container('aws-cli') {
                     sh 'echo "Checking AWS CLI..."; aws --version || echo "AWS CLI is not installed!"'
                 }
             }
-         }
+        }
 
 stage('Get Latest GitHub Release Tag') {
     steps {
         container('git') {
-                     script {
+            script {
                 echo "Installing curl & jq in the container..."
-                sh '''
-                apk add --no-cache curl jq
-                '''
-
+                sh 'apk add --no-cache curl jq'
                 echo "Fetching latest GitHub release tag..."
-                env.GITHUB_RELEASE_TAG = sh(
+                def tag = sh(
                     script: '''
                     curl -s -H "Accept: application/vnd.github.v3+json" \
                     https://api.github.com/repos/jmstechhome28/spring3-mvc-maven-xml-hello-world/releases/latest | jq -r '.tag_name'
@@ -71,16 +65,17 @@ stage('Get Latest GitHub Release Tag') {
                     returnStdout: true
                 ).trim()
 
-                if (!env.GITHUB_RELEASE_TAG || env.GITHUB_RELEASE_TAG == "null") {
-                    error "ERROR: No valid release tag found! Ensure GitHub repository has a release."
+                if (!tag || tag == "null") {
+                    error("ERROR: No valid release tag found! Ensure GitHub repository has a release.")
                 }
-
-                echo " Latest release tag: ${env.GITHUB_RELEASE_TAG}"
+                echo "GitHub Release Tag fetched: ${tag}"
+                // Store the tag in Jenkins environment
+                env.GITHUB_RELEASE_TAG = tag
+                sh "echo 'GITHUB_RELEASE_TAG=${tag}' >> \$WORKSPACE/env_vars"
             }
         }
-     }
-  }
-
+    }
+ }
         stage('Clone Application Repository') {
             steps {
                 container('git') {
@@ -92,32 +87,30 @@ stage('Get Latest GitHub Release Tag') {
             }
         }
 
-       stage('Build and Package App') {
-           steps {
-             container('maven') {
-               script {
-                    echo "Building application using Maven..."
-                       sh 'mvn clean package -DskipTests'
-                  }
+        stage('Build and Package App') {
+            steps {
+                container('maven') {
+                    script {
+                        echo "Building application using Maven..."
+                        sh 'mvn clean package -DskipTests'
+                    }
+                }
             }
-           }
-     }
-        stage('Login to AWS ECR') {
+        }
+
+        stage('Login to AWS ECR & Create ECR Secret'') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
                     script {
-                        container('aws-cli') {  
+                        container('aws-cli') {
                             echo "Fetching AWS ECR login password..."
                             sh '''
-                            export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-                            export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-
-                            # Get AWS ECR login password and store it in a shared volume
+                            mkdir -p /shared
                             aws ecr get-login-password --region ${AWS_REGION} > /shared/ecr_password.txt
                             chmod 600 /shared/ecr_password.txt
                             '''
                         }
-                        container('docker') {  
+                        container('docker') {
                             echo "Logging into AWS ECR..."
                             sh '''
                             if [ -f /shared/ecr_password.txt ]; then
@@ -128,11 +121,42 @@ stage('Get Latest GitHub Release Tag') {
                             fi
                             '''
                         }
+                        container('kubectl') {
+                            echo "Creating Kubernetes Secret for ECR..."
+
+                            // Delete secret if it already exists
+                            def secretExists = sh(script: "kubectl get secret ${ECR_SECRET_NAME} -n ${KUBE_NAMESPACE} >/dev/null 2>&1 && echo 'yes' || echo 'no'", returnStdout: true).trim()
+
+                            if (secretExists == 'yes') {
+                                echo "Secret '${ECR_SECRET_NAME}' already exists. Deleting it..."
+                                sh "kubectl delete secret ${ECR_SECRET_NAME} -n ${KUBE_NAMESPACE}"
+                            }
+                            else
+                                echo "secret object is not found hebce create an secret object"
+                            // Create the secret
+                            if [ -f /shared/ecr_password.txt ]; then
+                                sh '''
+                                 kubectl create secret docker-registry ${ECR_SECRET_NAME} \
+                                --docker-server=${ECR_REGISTRY} \
+                                --docker-username=AWS \
+                                --docker-password="$(cat /shared/ecr_password.txt )" \
+                                -n ${KUBE_NAMESPACE}
+                                 echo "Secret '${ECR_SECRET_NAME}' created successfully!"
+                            '''
+                                echo "Error: ECR password file not found! Secret object is not able to create"
+                                exit 1
+                            fi
+                            
+                            
+                        }
+                    }
+                }
+            }
+                        
                     }
                 }
             }
         }
-
 
     stage('Build and Push Docker Image') {
              steps {
@@ -189,7 +213,7 @@ stage('Get Latest GitHub Release Tag') {
                  }
              }
          }
- stage('Deploy ArgoCD Application') {
+stage('Deploy ArgoCD Application') {
     steps {
         container('kubectl') {
             script {
