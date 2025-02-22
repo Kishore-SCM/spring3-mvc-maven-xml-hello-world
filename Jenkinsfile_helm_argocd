@@ -18,6 +18,8 @@ pipeline {
         KUBE_CONTEXT = 'kubernetes-admin@kubernetes'
         KUBECONFIG = "/home/jenkins/.kube/config"
         ARGOCD_URL= "3.110.208.168:30421"
+        ECR_SECRET_NAME = "ecr-secret"
+        KUBE_NAMESPACE = "springapp"
     }
 
     stages {
@@ -96,7 +98,7 @@ stage('Get Latest GitHub Release Tag') {
             }
         }
 
-        stage('Login to AWS ECR') {
+        stage('Login to AWS ECR & Create ECR Secret'') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
                     script {
@@ -119,6 +121,39 @@ stage('Get Latest GitHub Release Tag') {
                             fi
                             '''
                         }
+                        container('kubectl') {
+                            echo "Creating Kubernetes Secret for ECR..."
+
+                            // Delete secret if it already exists
+                            def secretExists = sh(script: "kubectl get secret ${ECR_SECRET_NAME} -n ${KUBE_NAMESPACE} >/dev/null 2>&1 && echo 'yes' || echo 'no'", returnStdout: true).trim()
+
+                            if (secretExists == 'yes') {
+                                echo "Secret '${ECR_SECRET_NAME}' already exists. Deleting it..."
+                                sh "kubectl delete secret ${ECR_SECRET_NAME} -n ${KUBE_NAMESPACE}"
+                            }
+
+                            // Create the secret
+                            if [ -f /shared/ecr_password.txt ]; then
+                                sh '''
+                                 kubectl create secret docker-registry ${ECR_SECRET_NAME} \
+                                --docker-server=${ECR_REGISTRY} \
+                                --docker-username=AWS \
+                                --docker-password="$(cat /shared/ecr_password.txt )" \
+                                -n ${KUBE_NAMESPACE}
+                                 echo "Secret '${ECR_SECRET_NAME}' created successfully!"
+                            '''
+
+                            else
+                                echo "Error: ECR password file not found! Secret object is not able to create"
+                                exit 1
+                            fi
+                            
+                            
+                        }
+                    }
+                }
+            }
+                        
                     }
                 }
             }
