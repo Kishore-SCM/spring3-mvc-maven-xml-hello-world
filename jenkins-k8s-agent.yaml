@@ -7,84 +7,87 @@ spec:
   containers:
     - name: java8
       image: openjdk:8-jdk
-      command:
-        - cat
+      command: [ "cat" ]
       tty: true
+
     - name: maven
       image: maven:3.6.3-openjdk-8
-      command:
-        - cat
+      command: [ "cat" ]
       tty: true
       volumeMounts:
         - name: docker-socket
           mountPath: /var/run/docker.sock
+
     - name: docker
       image: docker:latest
-      command:
-        - cat
+      command: [ "cat" ]
       tty: true
       volumeMounts:
         - name: docker-socket
           mountPath: /var/run/docker.sock
         - name: shared-workspace
           mountPath: /shared
+
     - name: helm
       image: alpine/helm:3.8.2
-      command:
-        - cat
+      command: [ "cat" ]
       tty: true
+
     - name: git
       image: alpine/git:latest
-      command:
-        - cat
+      command: [ "cat" ]
       tty: true
       volumeMounts:
         - name: ssh-key
           mountPath: /ssh-key
           readOnly: true
+
     - name: aws-cli
       image: amazon/aws-cli
-      command:
-        - cat
+      command: [ "cat" ]
       tty: true
       volumeMounts:
         - name: shared-workspace
           mountPath: /shared
+
     - name: kubectl
       image: bitnami/kubectl:latest
-      command:
-        - cat
+      command: [ "cat" ]
       tty: true
       securityContext:
         runAsUser: 0
       volumeMounts:
         - name: kubeconfig-volume
           mountPath: /home/jenkins/.kube
+
     - name: argocd
       image: quay.io/argoproj/argocd:latest
-      command:
-        - cat
+      command: [ "cat" ]
       tty: true
       securityContext:
-      runAsUser: 0
+        runAsUser: 0
       volumeMounts:
-      - name: kubeconfig-volume
-        mountPath: /home/jenkins/.kube
+        - name: kubeconfig-volume
+          mountPath: /home/jenkins/.kube
       env:
         - name: KUBECONFIG
           value: /home/jenkins/.kube/config
+
   volumes:
     - name: docker-socket
       hostPath:
         path: /var/run/docker.sock
+
     - name: shared-workspace
       emptyDir: {}
+
     - name: ssh-key
       secret:
         secretName: jenkins-ssh-key
-    - name: ssh-volume 
+
+    - name: ssh-volume
       emptyDir: {}
+
     - name: kubeconfig-volume
       secret:
         secretName: jenkins-kubeconfig
-        
