@@ -123,40 +123,41 @@ stage('Get Latest GitHub Release Tag') {
                             '''
                         }
                     container('kubectl') {
-                        echo " creating namespace and ecr secret"
-                        def namespaceName = sh(script: "grep 'name:' ${WORKSPACE}/springapp-helm/springapp/namespace.yaml | awk '{print \$2}'", returnStdout: true).trim()
+                        script {
+                        echo "Checking if namespace exists..."
+                        def namespaceExists = sh(
+                            script: "kubectl get namespace ${KUBE_NAMESPACE} --ignore-not-found --output=jsonpath='{.metadata.name}'",
+                            returnStdout: true
+                        ).trim()
 
-                       // Check if namespace exists
-                        def namespaceExists = sh(script: "kubectl get namespace ${namespaceName} >/dev/null 2>&1 && echo 'yes' || echo 'no'", returnStdout: true).trim()
-                      sh '''
-                      if (namespaceExists == 'yes') {
-                        echo "Namespace '${namespaceName}' already exists. Skipping apply."
-                      } else {
-                        echo "Applying namespace configuration..."
-                        sh "kubectl apply -f ${WORKSPACE}/springapp-helm/springapp/namespace.yaml"
-                        echo "Namespace '${namespaceName}' created successfully!"
+                        if (namespaceExists) {
+                            echo "Namespace '${KUBE_NAMESPACE}' already exists. Skipping creation."
+                        } else {
+                            echo "Creating Kubernetes Namespace: ${KUBE_NAMESPACE}"
+                            sh "kubectl create namespace ${KUBE_NAMESPACE}"
+                            echo "Namespace '${KUBE_NAMESPACE}' created successfully!"
                         }
-                        fi
+
                         echo "Creating Kubernetes Secret for ECR..."
+                        sh '''
                         if [ -f /shared/ecr_password.txt ]; then
-                        kubectl create secret docker-registry ${ECR_SECRET_NAME} \
-                        --docker-server=${ECR_REGISTRY} \
-                        --docker-username=AWS \
-                        --docker-password="$(cat /shared/ecr_password.txt)" \
-                        -n ${KUBE_NAMESPACE}
-                        echo "Secret '${ECR_SECRET_NAME}' created successfully!"
+                            kubectl create secret docker-registry ${ECR_SECRET_NAME} \
+                            --docker-server=${ECR_REGISTRY} \
+                            --docker-username=AWS \
+                            --docker-password="$(cat /shared/ecr_password.txt)" \
+                            -n ${KUBE_NAMESPACE}
+                            echo "Secret '${ECR_SECRET_NAME}' created successfully!"
                         else
-                        echo "Error: ECR password file not found! Secret object is not able to create"
-                        exit 1
-                    fi
-                      '''
-                
+                            echo "Error: ECR password file not found! Secret creation failed."
+                            exit 1
+                        fi
+                        '''
                      }
                     }
                   }
                 }
             }
-
+         }
 stage('Build and Push Docker Image') {
     steps {
         container('docker') {
