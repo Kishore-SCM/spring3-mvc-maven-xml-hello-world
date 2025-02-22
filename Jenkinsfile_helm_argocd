@@ -21,6 +21,7 @@ pipeline {
     }
 
     stages {
+        // Stage 1: Check Prerequisites
         stage('Check Prerequisites') {
             steps {
                 script {
@@ -29,7 +30,6 @@ pipeline {
 
                 container('docker') {
                     sh 'echo "Checking Docker..."; docker --version || echo "Docker is not installed!"'
-                    sh 'echo "Checking git Docker..."; git --version || echo "git is not installed!"'
                 }
 
                 container('maven') {
@@ -54,6 +54,19 @@ pipeline {
             }
         }
 
+        // Stage 2: Debug Workspace
+        stage('Debug Workspace') {
+            steps {
+                script {
+                    echo "Debugging workspace..."
+                    sh 'echo "Workspace path: ${WORKSPACE}"'
+                    sh 'pwd'
+                    sh 'ls -ltr'
+                }
+            }
+        }
+
+        // Stage 3: Get Latest GitHub Release Tag
         stage('Get Latest GitHub Release Tag') {
             steps {
                 container('git') {
@@ -74,17 +87,31 @@ pipeline {
             }
         }
 
-        stage('Debug Workspace') {
+        // Stage 4: Clone Application Repository
+        stage('Clone Application Repository') {
             steps {
-                script {
-                    echo "Debugging workspace..."
-                    sh 'echo "Workspace path: ${WORKSPACE}"'
-                    sh 'pwd'
-                    sh 'ls -ltr'
+                container('git') {
+                    script {
+                        echo "Cloning application repository..."
+                        git branch: 'master', url: "${APP_REPO}", credentialsId: 'github-credentials'
+                    }
                 }
             }
         }
 
+        // Stage 5: Build and Package App
+        stage('Build and Package App') {
+            steps {
+                container('maven') {
+                    script {
+                        echo "Building application using Maven..."
+                        sh 'mvn clean package -DskipTests'
+                    }
+                }
+            }
+        }
+
+        // Stage 6: Login to AWS ECR
         stage('Login to AWS ECR') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
@@ -113,7 +140,92 @@ pipeline {
             }
         }
 
-        // Add other stages here...
+        // Stage 7: Build and Push Docker Image
+        stage('Build and Push Docker Image') {
+            steps {
+                container('docker') {
+                    script {
+                        echo "Building Docker image..."
+                        sh 'docker build -t ${DOCKER_IMAGE} .'
+
+                        echo "Pushing Docker image to ECR..."
+                        sh 'docker push ${DOCKER_IMAGE}'
+                    }
+                }
+            }
+        }
+
+        // Stage 8: Update the Helm Chart
+        stage('Update the Helm Chart') {
+            steps {
+                container('git') {
+                    script {
+                        sh """
+                        echo "Cloning Helm repository..."
+                        mkdir -p /home/jenkins/.ssh
+                        chmod 700 /home/jenkins/.ssh
+                        cp /ssh-key/id_ed25519 /home/jenkins/.ssh/id_ed25519 || true
+                        cp /ssh-key/id_ed25519.pub /home/jenkins/.ssh/id_ed25519.pub || true
+                        chmod 600 /home/jenkins/.ssh/id_ed25519
+                        rm -f /home/jenkins/.ssh/known_hosts
+                        ssh-keyscan -t ed25519 github.com > /home/jenkins/.ssh/known_hosts
+                        chmod 644 /home/jenkins/.ssh/known_hosts
+                        eval `ssh-agent -s`
+                        ssh-add /home/jenkins/.ssh/id_ed25519
+                        ls -ltr
+                        rm -rf ${HELM_CHART_DIR} || true
+                        ls -ltr
+                        export GIT_SSH_COMMAND="ssh -i /home/jenkins/.ssh/id_ed25519 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/home/jenkins/.ssh/known_hosts"
+                        git clone ${HELM_REPO} springapp-helm
+                        echo "Updating Helm values.yaml with new Docker image..."
+                        ls -ltr
+                        cd springapp-helm/${HELM_CHART_DIR}
+                        git pull origin master || true
+                        git checkout master
+                        apk add --no-cache bash sed
+                        sed -i 's|tag: .*|tag: "${env.GITHUB_RELEASE_TAG}"|' values.yaml
+                        echo "Committing and pushing Helm changes..."
+                        git config user.email "jmstechhome28@gmail.com"
+                        git config user.name "Jenkins CI"
+                        git add ${HELM_VALUES_FILE}
+                        git commit -m "Updated image to ${env.GITHUB_RELEASE_TAG}"
+                        git push origin master
+                        """
+                    }
+                }
+            }
+        }
+
+        // Stage 9: Deploy ArgoCD Application
+        stage('Deploy ArgoCD Application') {
+            steps {
+                container('kubectl') {
+                    script {
+                        echo "Deploying ArgoCD application..."
+                        sh """
+                        ls -ltr
+                        kubectl config use-context ${env.KUBE_CONTEXT}
+                        kubectl apply -f springapp-helm/argocd-app.yaml -n argocd
+                        """
+                    }
+                }
+            }
+        }
+
+        // Stage 10: Sync ArgoCD Application
+        stage('Sync ArgoCD Application') {
+            steps {
+                container('argocd') {
+                    script {
+                        echo "Syncing ArgoCD application..."
+                        sh """
+                        argocd app sync ${ARGOCD_APP_NAME}
+                        argocd app wait ${ARGOCD_APP_NAME} --health
+                        """
+                    }
+                }
+            }
+        }
     }
 
     post {
