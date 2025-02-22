@@ -245,20 +245,22 @@ stage('Deploy ArgoCD Application') {
                     echo "Deploying ArgoCD application..."
 
                     sh """
-                        # Debugging KUBECONFIG
-                        ls -lah /home/jenkins/.kube/
-                        cat /home/jenkins/.kube/kubeconfig
+                        # Debugging: List files in the workspace
+                        echo "Current workspace files:"
+                        ls -lah \${WORKSPACE}
 
-                        # Ensure writable kubeconfig
-                        mkdir -p /home/jenkins/.kube-writable
-                        cp /home/jenkins/.kube/kubeconfig /home/jenkins/.kube-writable/config
-                        chmod 600 /home/jenkins/.kube-writable/config
-                        export KUBECONFIG=/home/jenkins/.kube-writable/config
-                        
-                        # Verify cluster access
+                        # Move kubeconfig to writable location
+                        mkdir -p /tmp/kubeconfig-writable
+                        cp /home/jenkins/.kube/kubeconfig /tmp/kubeconfig-writable/config
+                        chmod 600 /tmp/kubeconfig-writable/config
+                        export KUBECONFIG=/tmp/kubeconfig-writable/config
+
+                        # Verify Kubernetes context
                         kubectl config view
                         kubectl get nodes
-                        kubectl apply -v=8 -f springapp-helm/argocd-app.yaml -n argocd
+
+                        # Apply ArgoCD app from the workspace
+                        kubectl apply -v=8 -f \${WORKSPACE}/springapp-helm/argocd-app.yaml -n argocd
                     """
                 }
             }
