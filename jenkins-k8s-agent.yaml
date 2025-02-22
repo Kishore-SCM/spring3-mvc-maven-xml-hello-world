@@ -56,10 +56,17 @@ spec:
         - cat
       tty: true
     - name: kubectl
-      image: bitnami/kubectl:latest  
+      image: bitnami/kubectl:latest
       command:
         - cat
-      tty: true  
+      tty: true
+      volumeMounts:
+        - name: kubeconfig-volume
+          mountPath: /home/jenkins/.kube
+  volumes:
+    - name: kubeconfig-volume
+      secret:
+        secretName: jenkins-kubeconfig
   volumes:
     - name: docker-socket
       hostPath:
@@ -71,4 +78,7 @@ spec:
         secretName: jenkins-ssh-key
     - name: ssh-volume 
       emptyDir: {}
+    - name: kubeconfig-volume
+      secret:
+        secretName: jenkins-kubeconfig
         
