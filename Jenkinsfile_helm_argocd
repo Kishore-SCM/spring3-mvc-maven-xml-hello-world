@@ -239,23 +239,19 @@ stage('Build and Push Docker Image') {
         // Stage 9: Deploy ArgoCD Application
 stage('Deploy ArgoCD Application') {
     steps {
-        timeout(time: 3, unit: 'MINUTES') { // Prevent indefinite hangs
+        timeout(time: 1, unit: 'MINUTES') { // Prevent indefinite hangs
             container('kubectl') {
                 script {
                     echo "Deploying ArgoCD application..."
-                    
+
                     sh """
-                    # Fix kubeconfig permissions issue
-                    echo "Setting permissions for kubeconfig..."
-                    ls -lah /home/jenkins/.kube/
-                    ls -lah /home/jenkins/.kube/kubeconfig
-                    ls -lah /home/jenkins/.kube/..data/
+                    # Ensure writable kubeconfig path
+                    mkdir -p /home/jenkins/.kube-writable
+                    cp /home/jenkins/.kube/kubeconfig /home/jenkins/.kube-writable/config
+                    chmod 600 /home/jenkins/.kube-writable/config
                     
-                    chown jenkins:jenkins /home/jenkins/.kube/kubeconfig
-                    chmod 600 /home/jenkins/.kube/kubeconfig
-                    
-                    # Verify access
-                    export KUBECONFIG=/home/jenkins/.kube/kubeconfig
+                    # Set KUBECONFIG to the writable copy
+                    export KUBECONFIG=/home/jenkins/.kube-writable/config
                     kubectl config view
                     kubectl get nodes
                     
