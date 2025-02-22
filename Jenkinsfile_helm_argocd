@@ -87,6 +87,7 @@ stage('Get Latest GitHub Release Tag') {
 
                 echo "GitHub Release Tag: ${tag}"
                 env.GITHUB_RELEASE_TAG = tag  
+               echo ${env.GITHUB_RELEASE_TAG}
             }
         }
     }
