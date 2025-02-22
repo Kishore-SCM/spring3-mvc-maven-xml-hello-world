@@ -10,8 +10,7 @@ pipeline {
         ECR_REPO_NAME = "springapp-helm"
         ECR_REGISTRY = "060795946012.dkr.ecr.ap-south-1.amazonaws.com"
         GITHUB_RELEASE_TAG = ""
-        IMAGE_TAG = "${env.GITHUB_RELEASE_TAG}"
-        DOCKER_IMAGE = "060795946012.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${env.GITHUB_RELEASE_TAG}"
+        DOCKER_IMAGE = "060795946012.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}"
         APP_REPO = "https://github.com/jmstechhome28/spring3-mvc-maven-xml-hello-world.git"
         HELM_REPO = "git@github.com:jmstechhome28/springapp-helm.git"
         HELM_CHART_DIR = "springapp"
@@ -66,38 +65,34 @@ pipeline {
                 }
             }
         }
- // Stage 3: Get Latest GitHub Release Tag
- stage('Get Latest GitHub Release Tag') {
-            steps {
-                container('git') {
-                    script {
-                        echo "Installing curl & jq in the container..."
-                        sh 'apk add --no-cache curl jq'
+stage('Get Latest GitHub Release Tag') {
+    steps {
+        container('git') {
+            script {
+                echo "Installing curl & jq in the container..."
+                sh 'apk add --no-cache curl jq'
 
                 echo "Fetching latest GitHub release tag..."
-                sh '''
-                # ✅ Use Jenkins workspace environment variable
-                TMP_DIR="${WORKSPACE}/tmp"
+                def tag = sh(
+                    script: '''
+                    curl -s -H "Accept: application/vnd.github.v3+json" \
+                    https://api.github.com/repos/jmstechhome28/spring3-mvc-maven-xml-hello-world/releases/latest | jq -r '.tag_name'
+                    ''',
+                    returnStdout: true
+                ).trim()
 
-                # ✅ Ensure the tmp directory exists
-                mkdir -p $TMP_DIR
-
-                # ✅ Fetch GitHub release tag
-                GITHUB_TAG=$(curl -s -H "Accept: application/vnd.github.v3+json" \
-                https://api.github.com/repos/jmstechhome28/spring3-mvc-maven-xml-hello-world/releases/latest | jq -r '.tag_name')
-
-                echo "GitHub Release Tag: $GITHUB_TAG"  # ✅ Debugging output
-                
-                # ✅ Define GITHUB_ENV file dynamically
-                GITHUB_ENV="$TMP_DIR/github_env"
-                touch $GITHUB_ENV
-                
-                echo "GITHUB_RELEASE_TAG=$GITHUB_TAG" >> $GITHUB_ENV
-                '''
-                    }
+                if (!tag || tag == "null") {
+                    error("ERROR: No valid release tag found! Ensure GitHub repository has a release.")
                 }
+
+                echo "GitHub Release Tag: ${tag}"
+                env.GITHUB_RELEASE_TAG = tag
             }
         }
+    }
+}
+
+
 
         // Stage 4: Clone Application Repository
         stage('Clone Application Repository') {
