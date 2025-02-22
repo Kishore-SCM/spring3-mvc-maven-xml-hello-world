@@ -17,6 +17,7 @@ pipeline {
         HELM_VALUES_FILE = "values.yaml"
         ARGOCD_APP_NAME = "springapp"
         KUBE_CONTEXT = 'kubernetes-admin@kubernetes'
+        KUBECONFIG = "/home/jenkins/.kube/config"
     }
 
     stages {
@@ -218,26 +219,47 @@ stage('Build and Push Docker Image') {
     }
 }
 
-        // Stage 9: Deploy ArgoCD Application
-stage('Deploy ArgoCD Application') {
-    steps {
-        timeout(time: 5, unit: 'MINUTES') { 
-            container('kubectl') {
-                script {
-                    echo "Deploying ArgoCD application..."
-                     sh """
-                            # mkdir -p /tmp/kubeconfig-writable
-                            # cp /home/jenkins/.kube/kubeconfig /tmp/kubeconfig-writable/config
-                            #chmod 600 /tmp/kubeconfig-writable/config
-                            #export KUBECONFIG=/tmp/kubeconfig-writable/config
-                             kubectl apply -v=8 -f \${WORKSPACE}/springapp-helm/argocd-app.yaml -n argocd --server-side --force-conflicts
-            """
+pipeline {
+    agent {
+        kubernetes {
+            yamlFile 'jenkins-agent.yaml' // Your YAML file with kubectl and argocd containers
+        }
+    }
+    environment {
+        KUBECONFIG = "/home/jenkins/.kube/config"
+    }
+    stages {
+        stage('Deploy & Sync ArgoCD App') {
+            steps {
+                container('kubectl') {
+                    script {
+                        echo "Deploying Application..."
+                        sh "kubectl apply -f ${WORKSPACE}/springapp-helm/argocd-app.yaml -n argocd --server-side --force-conflicts"
+                    }
+                }
+                container('argocd') {
+                    script {
+                        echo "Syncing ArgoCD Application..."
+                        withCredentials([string(credentialsId: 'ARGOCD_AUTH_TOKEN', variable: 'ARGOCD_TOKEN')]) {
+                            def ARGOCD_NODE_IP = sh(script: "kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type==\"InternalIP\")].address}'", returnStdout: true).trim()
+                            def ARGOCD_NODE_PORT = sh(script: "kubectl get svc -n argocd argocd-server -o jsonpath='{.spec.ports[?(@.name==\"http\")].nodePort}'", returnStdout: true).trim()
+                            
+                            def ARGOCD_SERVER = "${ARGOCD_NODE_IP}:${ARGOCD_NODE_PORT}"
+                            echo "ArgoCD Server: $ARGOCD_SERVER"
 
+                            sh """
+                                argocd login $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
+                                argocd app sync ${ARGOCD_APP_NAME}
+                                argocd app wait ${ARGOCD_APP_NAME} --health
+                            """
+                        }
+                    }
                 }
             }
         }
     }
 }
+
     stage('Sync ArgoCD Application') {
     steps {
         container('argocd') {
