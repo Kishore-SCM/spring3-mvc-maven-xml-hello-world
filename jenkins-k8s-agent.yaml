@@ -58,12 +58,13 @@ spec:
     - name: kubectl
       image: bitnami/kubectl:latest
       command:
-        - cat
+        - sleep
+      args:
+        - infinity
       tty: true
       volumeMounts:
         - name: kubeconfig-volume
           mountPath: /home/jenkins/.kube
-          readOnly: true
 
   volumes:
     - name: docker-socket
@@ -79,5 +80,4 @@ spec:
     - name: kubeconfig-volume
       secret:
         secretName: jenkins-kubeconfig
-        defaultMode: 0400
         
