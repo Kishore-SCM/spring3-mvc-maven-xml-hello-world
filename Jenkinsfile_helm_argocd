@@ -156,7 +156,6 @@ stage('Build and Push Docker Image') {
     steps {
         container('docker') {
             script {
-                // ✅ Load the variable from the saved file
                 sh '''
                 if [ -f $WORKSPACE/env_vars ]; then
                     source $WORKSPACE/env_vars
@@ -168,18 +167,17 @@ stage('Build and Push Docker Image') {
                 fi
                 '''
 
-                // ✅ Export it into the Jenkins environment so Groovy can use it
-                def envVars = readFile("$WORKSPACE/env_export").trim().split("\n")
-                for (line in envVars) {
-                    def (key, value) = line.split("=")
-                    env[key] = value
+                // ✅ Read the variable from the file
+                def githubTag = sh(script: "cat $WORKSPACE/env_export | grep GITHUB_RELEASE_TAG | cut -d'=' -f2", returnStdout: true).trim()
+
+                // ✅ Pass it to subsequent steps using `withEnv`
+                withEnv(["GITHUB_RELEASE_TAG=${githubTag}"]) {
+                    echo "🚀 Building Docker image with tag: ${GITHUB_RELEASE_TAG}..."
+                    sh "docker build -t ${DOCKER_IMAGE}:${GITHUB_RELEASE_TAG} ."
+
+                    echo "📤 Pushing Docker image to ECR..."
+                    sh "docker push ${DOCKER_IMAGE}:${GITHUB_RELEASE_TAG}"
                 }
-
-                echo "🚀 Building Docker image with tag: ${env.GITHUB_RELEASE_TAG}..."
-                sh "docker build -t ${DOCKER_IMAGE}:${env.GITHUB_RELEASE_TAG} ."
-
-                echo "📤 Pushing Docker image to ECR..."
-                sh "docker push ${DOCKER_IMAGE}:${env.GITHUB_RELEASE_TAG}"
             }
         }
     }
