@@ -237,20 +237,24 @@ stage('Build and Push Docker Image') {
 }
 
         // Stage 9: Deploy ArgoCD Application
-        stage('Deploy ArgoCD Application') {
-            steps {
-                container('kubectl') {
-                    script {
-                        echo "Deploying ArgoCD application..."
-                        sh """
-                        ls -ltr
-                        kubectl config use-context ${env.KUBE_CONTEXT}
-                        kubectl apply -f springapp-helm/argocd-app.yaml -n argocd
-                        """
-                    }
+stage('Deploy ArgoCD Application') {
+    steps {
+        container('kubectl') {
+            script {
+                echo "Deploying ArgoCD application..."
+
+                withEnv(["KUBECONFIG=/home/jenkins/.kube/config"]) {
+                    sh """
+                    ls -ltr
+                    kubectl get nodes
+                    kubectl apply -f springapp-helm/argocd-app.yaml -n argocd
+                    """
                 }
             }
         }
+    }
+}
+
 
         // Stage 10: Sync ArgoCD Application
       //   stage('Sync ArgoCD Application') {
