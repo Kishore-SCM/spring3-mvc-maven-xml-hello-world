@@ -98,7 +98,7 @@ stage('Get Latest GitHub Release Tag') {
             }
         }
 
-        stage('Login to AWS ECR & Create ECR Secret'') {
+        stage('Login to AWS ECR & Create ECR Secret') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
                     script {
