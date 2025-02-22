@@ -66,7 +66,7 @@
  
   <hr>
   <footer>
-	<p>&copy; test.com 2015</p>
+	<p>&copy; test.com 2025</p>
   </footer>
 </div>
  
