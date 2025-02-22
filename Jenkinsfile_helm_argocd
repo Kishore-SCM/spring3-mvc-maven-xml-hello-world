@@ -30,6 +30,7 @@ pipeline {
 
                 container('docker') {
                     sh 'echo "Checking Docker..."; docker --version || echo "Docker is not installed!"'
+                     sh 'echo "Checking Git..."; git --version || echo "Git is not installed!"'
                 }
 
                 container('maven') {
@@ -73,14 +74,26 @@ pipeline {
                         echo "Installing curl & jq in the container..."
                         sh 'apk add --no-cache curl jq'
 
-                        echo "Fetching latest GitHub release tag..."
-                        sh '''
-                        export GITHUB_TAG=$(curl -s -H "Accept: application/vnd.github.v3+json" \
-                        https://api.github.com/repos/jmstechhome28/spring3-mvc-maven-xml-hello-world/releases/latest | jq -r '.tag_name')
+                echo "Fetching latest GitHub release tag..."
+                sh '''
+                # ✅ Use Jenkins workspace environment variable
+                TMP_DIR="${WORKSPACE}/tmp"
 
-                        echo "GitHub Release Tag: $GITHUB_TAG"
-                        echo "GITHUB_RELEASE_TAG=$GITHUB_TAG" >> $GITHUB_ENV
-                        '''
+                # ✅ Ensure the tmp directory exists
+                mkdir -p $TMP_DIR
+
+                # ✅ Fetch GitHub release tag
+                GITHUB_TAG=$(curl -s -H "Accept: application/vnd.github.v3+json" \
+                https://api.github.com/repos/jmstechhome28/spring3-mvc-maven-xml-hello-world/releases/latest | jq -r '.tag_name')
+
+                echo "GitHub Release Tag: $GITHUB_TAG"  # ✅ Debugging output
+                
+                # ✅ Define GITHUB_ENV file dynamically
+                GITHUB_ENV="$TMP_DIR/github_env"
+                touch $GITHUB_ENV
+                
+                echo "GITHUB_RELEASE_TAG=$GITHUB_TAG" >> $GITHUB_ENV
+                '''
                     }
                 }
             }
