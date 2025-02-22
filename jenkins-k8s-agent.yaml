@@ -4,8 +4,6 @@ metadata:
   labels:
     jenkins-agent: maven-java8
 spec:
- # securityContext:
-   # runAsUser: 1000
   containers:
     - name: java8
       image: openjdk:8-jdk
@@ -60,9 +58,7 @@ spec:
     - name: kubectl
       image: bitnami/kubectl:latest
       command:
-        - sleep
-      args:
-        - infinity
+        - cat
       tty: true
       securityContext:
         runAsUser: 0
