@@ -202,38 +202,49 @@ stage('Build and Push Docker Image') {
                 // Read the stored GITHUB_RELEASE_TAG from the env file
                 def githubTag = sh(script: "cat $WORKSPACE/env_export | grep GITHUB_RELEASE_TAG | cut -d'=' -f2", returnStdout: true).trim()
 
-                // Use withEnv to pass it into the shell script
                 withEnv(["GITHUB_RELEASE_TAG=${githubTag}"]) {
-                    sh """
+                    sh '''
                     echo "Cloning Helm repository..."
                     mkdir -p /home/jenkins/.ssh
                     chmod 700 /home/jenkins/.ssh
+
+                    # Copy SSH key if available
                     cp /ssh-key/id_ed25519 /home/jenkins/.ssh/id_ed25519 || true
                     cp /ssh-key/id_ed25519.pub /home/jenkins/.ssh/id_ed25519.pub || true
                     chmod 600 /home/jenkins/.ssh/id_ed25519
+
+                    # Add known hosts to prevent SSH prompts
                     rm -f /home/jenkins/.ssh/known_hosts
                     ssh-keyscan -t ed25519 github.com > /home/jenkins/.ssh/known_hosts
                     chmod 644 /home/jenkins/.ssh/known_hosts
-                    eval ssh-agent -s
-                    ssh-add /home/jenkins/.ssh/id_ed25519
-                    rm -rf ${HELM_CHART_DIR} || true
+
+                    # ✅ Start SSH agent and add the key properly
+                    eval $(ssh-agent -s)
+                    ssh-add /home/jenkins/.ssh/id_ed25519 || exit 1
+
+                    # Clone Helm repository
                     export GIT_SSH_COMMAND="ssh -i /home/jenkins/.ssh/id_ed25519 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/home/jenkins/.ssh/known_hosts"
-                    git clone ${HELM_REPO} springapp-helm
+                    git clone ${HELM_REPO} springapp-helm || exit 1
                     echo "Updating Helm values.yaml with new Docker image..."
+
                     cd springapp-helm/${HELM_CHART_DIR}
                     git pull origin master || true
                     git checkout master
+
+                    # Ensure necessary tools are installed
                     apk add --no-cache bash sed
 
-                    # Use GITHUB_RELEASE_TAG correctly inside the shell script
+                    # Use GITHUB_RELEASE_TAG correctly
                     sed -i 's|tag: .*|tag: "'$GITHUB_RELEASE_TAG'"|' values.yaml
+
+                    # Commit and push the changes
                     echo "Committing and pushing Helm changes..."
                     git config user.email "jmstechhome28@gmail.com"
                     git config user.name "Jenkins CI"
                     git add ${HELM_VALUES_FILE}
                     git commit -m "Updated image to $GITHUB_RELEASE_TAG"
-                    git push origin master
-                    """
+                    git push origin master || exit 1
+                    '''
                 }
             }
         }
