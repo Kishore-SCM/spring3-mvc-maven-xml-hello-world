@@ -29,6 +29,7 @@ pipeline {
 
                 container('docker') {
                     sh 'echo "Checking Docker..."; docker --version || echo "Docker is not installed!"'
+                   sh 'echo "Checking git in docker..."; git --version || echo "git is not installedin docker container!"'
                 }
 
                 container('maven') {
