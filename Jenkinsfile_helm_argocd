@@ -20,6 +20,7 @@ pipeline {
         ARGOCD_URL= "3.110.208.168:30421"
         ECR_SECRET_NAME = "ecr-secret"
         KUBE_NAMESPACE = "springapp"
+        
     }
 
     stages {
@@ -98,7 +99,7 @@ stage('Get Latest GitHub Release Tag') {
             }
         }
 
-        stage('Login to AWS ECR & Create ECR Secret') {
+        stage('Login to AWS ECR') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
                     script {
@@ -121,118 +122,152 @@ stage('Get Latest GitHub Release Tag') {
                             fi
                             '''
                         }
-                        container('kubectl') {
-                            sh '''
-                            echo "Creating Kubernetes Secret for ECR..."
+                    container('kubectl') {
+                     sh '''
+                        echo " creating namespace and ecr secret"
+                        def namespaceName = sh(script: "grep 'name:' ${WORKSPACE}/springapp-helm/springapp/namespace.yaml | awk '{print \$2}'", returnStdout: true).trim()
 
-                            // Delete secret if it already exists
-                            def secretExists = sh(script: "kubectl get secret ${ECR_SECRET_NAME} -n ${KUBE_NAMESPACE} >/dev/null 2>&1 && echo 'yes' || echo 'no'", returnStdout: true).trim()
+                       // Check if namespace exists
+                        def namespaceExists = sh(script: "kubectl get namespace ${namespaceName} >/dev/null 2>&1 && echo 'yes' || echo 'no'", returnStdout: true).trim()
 
-                            if (secretExists == 'yes') {
-                                echo "Secret '${ECR_SECRET_NAME}' already exists. Deleting it..."
-                                sh "kubectl delete secret ${ECR_SECRET_NAME} -n ${KUBE_NAMESPACE}"
-                            }
-                            else
-                               
-                                 kubectl create secret docker-registry ${ECR_SECRET_NAME} \
-                                --docker-server=${ECR_REGISTRY} \
-                                --docker-username=AWS \
-                                --docker-password="$(cat /shared/ecr_password.txt )" \
-                                -n ${KUBE_NAMESPACE}
-                                 echo "Secret '${ECR_SECRET_NAME}' created successfully!"
-                                 exit 1
-                            fi 
-                            '''                       
+                      if (namespaceExists == 'yes') {
+                        echo "Namespace '${namespaceName}' already exists. Skipping apply."
+                      } else {
+                        echo "Applying namespace configuration..."
+                        sh "kubectl apply -f ${WORKSPACE}/springapp-helm/springapp/namespace.yaml"
+                        echo "Namespace '${namespaceName}' created successfully!"
                         }
+                        fi
+                        echo "Creating Kubernetes Secret for ECR..."
+                        if [ -f /shared/ecr_password.txt ]; then
+                        kubectl create secret docker-registry ${ECR_SECRET_NAME} \
+                        --docker-server=${ECR_REGISTRY} \
+                        --docker-username=AWS \
+                        --docker-password="$(cat /shared/ecr_password.txt)" \
+                        -n ${KUBE_NAMESPACE}
+                        echo "Secret '${ECR_SECRET_NAME}' created successfully!"
+                        else
+                        echo "Error: ECR password file not found! Secret object is not able to create"
+                        exit 1
+                    fi
+                      '''
+                
+                     }
+                    }
+                  }
+                }
+            }
+
+stage('Build and Push Docker Image') {
+    steps {
+        container('docker') {
+            script {
+                sh '''
+                if [ -f $WORKSPACE/env_vars ]; then
+                    source $WORKSPACE/env_vars
+                    echo "Reloaded GITHUB_RELEASE_TAG: $GITHUB_RELEASE_TAG"
+                    echo "GITHUB_RELEASE_TAG=$GITHUB_RELEASE_TAG" >> $WORKSPACE/env_export
+                else
+                    echo " No env_vars file found!"
+                    exit 1
+                fi
+                '''
+                // Read the variable from the file
+                def githubTag = sh(script: "cat $WORKSPACE/env_export | grep GITHUB_RELEASE_TAG | cut -d'=' -f2", returnStdout: true).trim()
+                withEnv(["GITHUB_RELEASE_TAG=${githubTag}"]) {
+                    echo "Building Docker image with tag: ${GITHUB_RELEASE_TAG}..."
+                    sh "docker build -t ${DOCKER_IMAGE}:${GITHUB_RELEASE_TAG} ."
+                    echo "Pushing Docker image to ECR..."
+                    sh "docker push ${DOCKER_IMAGE}:${GITHUB_RELEASE_TAG}"
+                }
+            }
+        }
+    }
+}
+    stage('Update the Helm Chart') {
+    steps {
+        container('git') {
+            script {
+                // Read the stored GITHUB_RELEASE_TAG from the env file
+                def githubTag = sh(script: "cat $WORKSPACE/env_export | grep GITHUB_RELEASE_TAG | cut -d'=' -f2", returnStdout: true).trim()
+
+                // Use withEnv to pass it into the shell script
+                withEnv(["GITHUB_RELEASE_TAG=${githubTag}"]) {
+                    sh """
+                    echo "Cloning Helm repository..."
+                    mkdir -p /home/jenkins/.ssh
+                    chmod 700 /home/jenkins/.ssh
+                    cp /ssh-key/id_ed25519 /home/jenkins/.ssh/id_ed25519 || true
+                    cp /ssh-key/id_ed25519.pub /home/jenkins/.ssh/id_ed25519.pub || true
+                    chmod 600 /home/jenkins/.ssh/id_ed25519
+                    rm -f /home/jenkins/.ssh/known_hosts
+                    ssh-keyscan -t ed25519 github.com > /home/jenkins/.ssh/known_hosts
+                    chmod 644 /home/jenkins/.ssh/known_hosts
+                    eval ssh-agent -s
+                    ssh-add /home/jenkins/.ssh/id_ed25519
+                    rm -rf ${HELM_CHART_DIR} || true
+                    export GIT_SSH_COMMAND="ssh -i /home/jenkins/.ssh/id_ed25519 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/home/jenkins/.ssh/known_hosts"
+                    git clone ${HELM_REPO} springapp-helm
+                    echo "Updating Helm values.yaml with new Docker image..."
+                    cd springapp-helm/${HELM_CHART_DIR}
+                    git pull origin master || true
+                    git checkout master
+                    apk add --no-cache bash sed
+
+                    # Use GITHUB_RELEASE_TAG correctly inside the shell script
+                    sed -i 's|tag: .*|tag: "'$GITHUB_RELEASE_TAG'"|' values.yaml
+                    echo "Committing and pushing Helm changes..."
+                    git config user.email "jmstechhome28@gmail.com"
+                    git config user.name "Jenkins CI"
+                    git add ${HELM_VALUES_FILE}
+                    git commit -m "Updated image to $GITHUB_RELEASE_TAG"
+                    git push origin master
+                    """
+                }
+            }
+        }
+    }
+}
+        stage('Deploy & Sync ArgoCD App') {
+            steps {
+                container('kubectl') {
+                    script {
+                        echo "Deploying Application..."
+                        def namespaceName = sh(script: "grep 'name:' ${WORKSPACE}/springapp-helm/springapp/namespace.yaml | awk '{print \$2}'", returnStdout: true).trim()
+
+                    // Check if namespace exists
+                    def namespaceExists = sh(script: "kubectl get namespace ${namespaceName} >/dev/null 2>&1 && echo 'yes' || echo 'no'", returnStdout: true).trim()
+
+                    if (namespaceExists == 'yes') {
+                        echo "Namespace '${namespaceName}' already exists. Skipping apply."
+                    } else {
+                        echo "Applying namespace configuration..."
+                        sh "kubectl apply -f ${WORKSPACE}/springapp-helm/springapp/namespace.yaml"
+                        echo "Namespace '${namespaceName}' created successfully!"
+                    }
+            
+                        sh "${WORKSPACE}/springapp-helm/springapp/create_ecr_secret.sh"
+          
+                        sh "kubectl apply -f ${WORKSPACE}/springapp-helm/argocd-app.yaml -n argocd --server-side --force-conflicts"
+                    }
+                }
+                container('argocd') {
+                    script {
+                        echo "Syncing ArgoCD Application..."
+            withCredentials([usernamePassword(credentialsId: 'argocd_credentials', usernameVariable: 'ARGOCD_USER', passwordVariable: 'ARGOCD_PASS')]) {
+                        echo "Logging into ArgoCD..."
+                        sh """
+                            argocd login ${ARGOCD_URL} --insecure --grpc-web --username \$ARGOCD_USER --password \$ARGOCD_PASS
+                            argocd app sync ${ARGOCD_APP_NAME}
+                            argocd app wait ${ARGOCD_APP_NAME} --health
+                        """
+                         }
+                       }
                     }
                 }
             }
-  
         }
 
-    stage('Build and Push Docker Image') {
-             steps {
-                container('docker') {
-                     script {
-                    echo "Building Docker image..."
-                       sh 'docker build -t 060795946012.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${GITHUB_RELEASE_TAG} .'
-
-                   echo "Pushing Docker image to ECR..."
-                      sh 'docker push 060795946012.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${GITHUB_RELEASE_TAG}'
-                     }
-              }
-           }
-       }
-
-         stage('update the helm chart') {
-             steps {
-                 container('git') {
-                     script {
-                         sh """
-                            echo "Cloning Helm repository..."
-                             mkdir -p /home/jenkins/.ssh
-                             chmod 700 /home/jenkins/.ssh
-                             cp /ssh-key/id_ed25519 /home/jenkins/.ssh/id_ed25519 || true
-                             cp /ssh-key/id_ed25519.pub /home/jenkins/.ssh/id_ed25519.pub || true
-                             chmod 600 /home/jenkins/.ssh/id_ed25519
-                             rm -f /home/jenkins/.ssh/known_hosts
-                             ssh-keyscan -t ed25519 github.com > /home/jenkins/.ssh/known_hosts
-                             chmod 644 /home/jenkins/.ssh/known_hosts
-                             eval `ssh-agent -s`
-                             ssh-add /home/jenkins/.ssh/id_ed25519
-                             ls -ltr
-                             rm -rf ${HELM_CHART_DIR} || true
-                             ls -ltr
-                             export GIT_SSH_COMMAND="ssh -i /home/jenkins/.ssh/id_ed25519 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/home/jenkins/.ssh/known_hosts"
-                             git clone ${HELM_REPO} springapp-helm
-                             echo "Updating Helm values.yaml with new Docker image..."                     
-                             ls -ltr
-                             cd springapp-helm/${HELM_CHART_DIR}  
-                             #git fetch --all
-                             git pull origin master || true
-                             git checkout master
-                             apk add --no-cache bash sed 
-                             sed -i 's|tag: .*|tag: "${GITHUB_RELEASE_TAG}"|' values.yaml
-                             echo "Committing and pushing Helm changes..."
-                             git config user.email "jmstechhome28@gmail.com"
-                             git config user.name "Jenkins CI"
-                             git add ${HELM_VALUES_FILE}
-                             git commit -m "Updated image to ${GITHUB_RELEASE_TAG}"
-                             git push origin master
-                         """
-
-                     }
-                 }
-             }
-         }
-stage('Deploy ArgoCD Application') {
-    steps {
-        container('kubectl') {
-            script {
-                echo "Deploying ArgoCD application..."
-                sh """
-                ls -ltr
-                kubectl config use-context ${env.KUBE_CONTEXT}
-                kubectl apply -f springapp-helm/argocd-app.yaml -n argocd
-                """
-            }
-        }
-    }
-}
-stage('Sync ArgoCD Application') {
-    steps {
-        container('argocd') {
-            script {
-                echo "sync ArgoCD application..."
-                sh """
-                argocd app sync springapp
-                argocd app wait springapp --health
-               """
-            }
-        }
-    }
-}
-}
 
     post {
         success {
@@ -242,4 +277,4 @@ stage('Sync ArgoCD Application') {
             echo "Deployment failed. Check logs!"
         }
     }
-}
+} 
