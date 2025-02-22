@@ -230,12 +230,14 @@ stage('Build and Push Docker Image') {
                 container('argocd') {
                     script {
                         echo "Syncing ArgoCD Application..."
-                        withCredentials([string(credentialsId: 'ARGOCD_AUTH_TOKEN', variable: 'ARGOCD_TOKEN')]) {
-                            sh """
-                                argocd login $ARGOCD_URL --auth-token $ARGOCD_TOKEN --grpc-web
-                                argocd app sync ${ARGOCD_APP_NAME}
-                                argocd app wait ${ARGOCD_APP_NAME} --health
-                            """
+                    withCredentials([usernamePassword(credentialsId: 'argocd_credentials', usernameVariable: 'ARGOCD_USER', passwordVariable: 'ARGOCD_PASS')]) {
+                        echo "Logging into ArgoCD..."
+                        sh """
+                            argocd login ${ARGOCD_URL} --insecure --grpc-web --username \$ARGOCD_USER --password \$ARGOCD_PASS
+                            argocd app sync ${ARGOCD_APP_NAME}
+                            argocd app wait ${ARGOCD_APP_NAME} --health
+                        """
+                    }
                         }
                     }
                 }
