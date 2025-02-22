@@ -9,11 +9,11 @@ pipeline {
         AWS_REGION = "ap-south-1"
         ECR_REPO_NAME = "springapp-helm"
         ECR_REGISTRY = "060795946012.dkr.ecr.ap-south-1.amazonaws.com"
-        GITHUB_RELEASE_TAG = ""
-        IMAGE_TAG = "${GITHUB_RELEASE_TAG}"
-        DOCKER_IMAGE = " 060795946012.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${GITHUB_RELEASE_TAG}"
+        GITHUB_RELEASE_TAG = "" // This will be updated dynamically
+        IMAGE_TAG = "${env.GITHUB_RELEASE_TAG}"
+        DOCKER_IMAGE = "060795946012.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${env.GITHUB_RELEASE_TAG}"
         APP_REPO = "https://github.com/jmstechhome28/spring3-mvc-maven-xml-hello-world.git"
-        HELM_REPO = "git@github.com:jmstechhome28/springapp-helm.git" 
+        HELM_REPO = "git@github.com:jmstechhome28/springapp-helm.git"
         HELM_CHART_DIR = "springapp"
         HELM_VALUES_FILE = "values.yaml"
         ARGOCD_APP_NAME = "springapp"
@@ -21,59 +21,57 @@ pipeline {
     }
 
     stages {
-     stage('Check Prerequisites') {
+        stage('Check Prerequisites') {
             steps {
                 script {
                     echo "Checking if all required tools are installed..."
                 }
-                
+
                 container('docker') {
                     sh 'echo "Checking Docker..."; docker --version || echo "Docker is not installed!"'
-                    sh 'echo "Checking git in Docker..."; git --version || echo "git is not installed!"'
                 }
-                
+
                 container('maven') {
                     sh 'echo "Checking Maven..."; mvn -version || echo "Maven is not installed!"'
                 }
-                
+
                 container('java8') {
                     sh 'echo "Checking Java..."; java -version || echo "Java is not installed!"'
                 }
-                
+
                 container('helm') {
                     sh 'echo "Checking Helm..."; helm version || echo "Helm is not installed!"'
                 }
-                
+
                 container('git') {
                     sh 'echo "Checking Git..."; git --version || echo "Git is not installed!"'
                 }
-                
+
                 container('aws-cli') {
                     sh 'echo "Checking AWS CLI..."; aws --version || echo "AWS CLI is not installed!"'
                 }
             }
-         }
+        }
 
-    stage('Get Latest GitHub Release Tag') {
-    steps {
-        container('git') {
-            script {
-                echo "Installing curl & jq in the container..."
-                sh 'apk add --no-cache curl jq'
+        stage('Get Latest GitHub Release Tag') {
+            steps {
+                container('git') {
+                    script {
+                        echo "Installing curl & jq in the container..."
+                        sh 'apk add --no-cache curl jq'
 
-                echo "Fetching latest GitHub release tag..."
-                echo "Fetching latest GitHub release tag..."
-                sh '''
-                export GITHUB_TAG=$(curl -s -H "Accept: application/vnd.github.v3+json" \
-                https://api.github.com/repos/jmstechhome28/spring3-mvc-maven-xml-hello-world/releases/latest | jq -r '.tag_name')
+                        echo "Fetching latest GitHub release tag..."
+                        sh '''
+                        export GITHUB_TAG=$(curl -s -H "Accept: application/vnd.github.v3+json" \
+                        https://api.github.com/repos/jmstechhome28/spring3-mvc-maven-xml-hello-world/releases/latest | jq -r '.tag_name')
 
-                echo "GitHub Release Tag: $GITHUB_TAG"  # ✅ Debugging output
-                echo "GITHUB_RELEASE_TAG=$GITHUB_TAG" >> $GITHUB_ENV
-                '''
+                        echo "GitHub Release Tag: $GITHUB_TAG"
+                        echo "GITHUB_RELEASE_TAG=$GITHUB_TAG" >> $GITHUB_ENV
+                        '''
+                    }
+                }
             }
         }
-    }
-}
 
         stage('Clone Application Repository') {
             steps {
@@ -86,21 +84,22 @@ pipeline {
             }
         }
 
-       stage('Build and Package App') {
-           steps {
-             container('maven') {
-               script {
-                    echo "Building application using Maven..."
-                       sh 'mvn clean package -DskipTests'
-                  }
+        stage('Build and Package App') {
+            steps {
+                container('maven') {
+                    script {
+                        echo "Building application using Maven..."
+                        sh 'mvn clean package -DskipTests'
+                    }
+                }
             }
-           }
-     }
+        }
+
         stage('Login to AWS ECR') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-credentials']]) {
                     script {
-                        container('aws-cli') {  
+                        container('aws-cli') {
                             echo "Fetching AWS ECR login password..."
                             sh '''
                             export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
@@ -111,7 +110,7 @@ pipeline {
                             chmod 600 /shared/ecr_password.txt
                             '''
                         }
-                        container('docker') {  
+                        container('docker') {
                             echo "Logging into AWS ECR..."
                             sh '''
                             if [ -f /shared/ecr_password.txt ]; then
@@ -127,90 +126,89 @@ pipeline {
             }
         }
 
-
-    stage('Build and Push Docker Image') {
-             steps {
+        stage('Build and Push Docker Image') {
+            steps {
                 container('docker') {
-                     script {
-                    echo "Building Docker image..."
-                       sh 'docker build -t 060795946012.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${GITHUB_RELEASE_TAG} .'
+                    script {
+                        echo "Building Docker image..."
+                        sh 'docker build -t ${DOCKER_IMAGE} .'
 
-                   echo "Pushing Docker image to ECR..."
-                      sh 'docker push 060795946012.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}:${GITHUB_RELEASE_TAG}'
-                     }
-              }
-           }
-       }
+                        echo "Pushing Docker image to ECR..."
+                        sh 'docker push ${DOCKER_IMAGE}'
+                    }
+                }
+            }
+        }
 
-         stage('update the helm chart') {
-             steps {
-                 container('git') {
-                     script {
-                         sh """
-                            echo "Cloning Helm repository..."
-                             mkdir -p /home/jenkins/.ssh
-                             chmod 700 /home/jenkins/.ssh
-                             cp /ssh-key/id_ed25519 /home/jenkins/.ssh/id_ed25519 || true
-                             cp /ssh-key/id_ed25519.pub /home/jenkins/.ssh/id_ed25519.pub || true
-                             chmod 600 /home/jenkins/.ssh/id_ed25519
-                             rm -f /home/jenkins/.ssh/known_hosts
-                             ssh-keyscan -t ed25519 github.com > /home/jenkins/.ssh/known_hosts
-                             chmod 644 /home/jenkins/.ssh/known_hosts
-                             eval `ssh-agent -s`
-                             ssh-add /home/jenkins/.ssh/id_ed25519
-                             ls -ltr
-                             rm -rf ${HELM_CHART_DIR} || true
-                             ls -ltr
-                             export GIT_SSH_COMMAND="ssh -i /home/jenkins/.ssh/id_ed25519 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/home/jenkins/.ssh/known_hosts"
-                             git clone ${HELM_REPO} springapp-helm
-                             echo "Updating Helm values.yaml with new Docker image..."                     
-                             ls -ltr
-                             cd springapp-helm/${HELM_CHART_DIR}  
-                             #git fetch --all
-                             git pull origin master || true
-                             git checkout master
-                             apk add --no-cache bash sed 
-                             sed -i 's|tag: .*|tag: "${GITHUB_RELEASE_TAG}"|' values.yaml
-                             echo "Committing and pushing Helm changes..."
-                             git config user.email "jmstechhome28@gmail.com"
-                             git config user.name "Jenkins CI"
-                             git add ${HELM_VALUES_FILE}
-                             git commit -m "Updated image to ${GITHUB_RELEASE_TAG}"
-                             git push origin master
-                         """
+        stage('Update the Helm Chart') {
+            steps {
+                container('git') {
+                    script {
+                        sh """
+                        echo "Cloning Helm repository..."
+                        mkdir -p /home/jenkins/.ssh
+                        chmod 700 /home/jenkins/.ssh
+                        cp /ssh-key/id_ed25519 /home/jenkins/.ssh/id_ed25519 || true
+                        cp /ssh-key/id_ed25519.pub /home/jenkins/.ssh/id_ed25519.pub || true
+                        chmod 600 /home/jenkins/.ssh/id_ed25519
+                        rm -f /home/jenkins/.ssh/known_hosts
+                        ssh-keyscan -t ed25519 github.com > /home/jenkins/.ssh/known_hosts
+                        chmod 644 /home/jenkins/.ssh/known_hosts
+                        eval `ssh-agent -s`
+                        ssh-add /home/jenkins/.ssh/id_ed25519
+                        ls -ltr
+                        rm -rf ${HELM_CHART_DIR} || true
+                        ls -ltr
+                        export GIT_SSH_COMMAND="ssh -i /home/jenkins/.ssh/id_ed25519 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/home/jenkins/.ssh/known_hosts"
+                        git clone ${HELM_REPO} springapp-helm
+                        echo "Updating Helm values.yaml with new Docker image..."
+                        ls -ltr
+                        cd springapp-helm/${HELM_CHART_DIR}
+                        git pull origin master || true
+                        git checkout master
+                        apk add --no-cache bash sed
+                        sed -i 's|tag: .*|tag: "${env.GITHUB_RELEASE_TAG}"|' values.yaml
+                        echo "Committing and pushing Helm changes..."
+                        git config user.email "jmstechhome28@gmail.com"
+                        git config user.name "Jenkins CI"
+                        git add ${HELM_VALUES_FILE}
+                        git commit -m "Updated image to ${env.GITHUB_RELEASE_TAG}"
+                        git push origin master
+                        """
+                    }
+                }
+            }
+        }
 
-                     }
-                 }
-             }
-         }
-stage('Deploy ArgoCD Application') {
-    steps {
-        container('kubectl') {
-            script {
-                echo "Deploying ArgoCD application..."
-                sh """
-                ls -ltr
-                kubectl config use-context ${env.KUBE_CONTEXT}
-                kubectl apply -f springapp-helm/argocd-app.yaml -n argocd
-                """
+        stage('Deploy ArgoCD Application') {
+            steps {
+                container('kubectl') {
+                    script {
+                        echo "Deploying ArgoCD application..."
+                        sh """
+                        ls -ltr
+                        kubectl config use-context ${env.KUBE_CONTEXT}
+                        kubectl apply -f springapp-helm/argocd-app.yaml -n argocd
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Sync ArgoCD Application') {
+            steps {
+                container('argocd') {
+                    script {
+                        echo "Syncing ArgoCD application..."
+                        sh """
+                        argocd app sync ${ARGOCD_APP_NAME}
+                        argocd app wait ${ARGOCD_APP_NAME} --health
+                        """
+                    }
+                }
             }
         }
     }
-}
-stage('Sync ArgoCD Application') {
-    steps {
-        container('argocd') {
-            script {
-                echo "sync ArgoCD application..."
-                sh """
-                argocd app sync springapp
-                argocd app wait springapp --health
-               """
-            }
-        }
-    }
-}
-}
 
     post {
         success {
