@@ -72,10 +72,10 @@ stage('Get Latest GitHub Release Tag') {
                 ).trim()
 
                 if (!env.GITHUB_RELEASE_TAG || env.GITHUB_RELEASE_TAG == "null") {
-                    error "❌ ERROR: No valid release tag found! Ensure GitHub repository has a release."
+                    error "ERROR: No valid release tag found! Ensure GitHub repository has a release."
                 }
 
-                echo "✅ Latest release tag: ${env.GITHUB_RELEASE_TAG}"
+                echo " Latest release tag: ${env.GITHUB_RELEASE_TAG}"
             }
         }
      }
@@ -189,7 +189,7 @@ stage('Get Latest GitHub Release Tag') {
                  }
              }
          }
-stage('Deploy ArgoCD Application') {
+ stage('Deploy ArgoCD Application') {
     steps {
         container('kubectl') {
             script {
