@@ -239,15 +239,18 @@ stage('Build and Push Docker Image') {
         // Stage 9: Deploy ArgoCD Application
 stage('Deploy ArgoCD Application') {
     steps {
-        container('kubectl') {
-            script {
-                echo "Deploying ArgoCD application..."
+        timeout(time: 1, unit: 'MINUTES') {  // Auto-abort after 1 minutes
+            container('kubectl') {
+                script {
+                    echo "Deploying ArgoCD application..."
 
-                withEnv(["KUBECONFIG=/home/jenkins/.kube/config"]) {
                     sh """
                     ls -ltr
+                    kubectl version --client
+                    kubectl config view
                     kubectl get nodes
-                    kubectl apply -f springapp-helm/argocd-app.yaml -n argocd
+                    echo "deploying argocd app"
+                    kubectl apply -v=8 -f springapp-helm/argocd-app.yaml -n argocd
                     """
                 }
             }
