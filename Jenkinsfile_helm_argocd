@@ -239,18 +239,16 @@ stage('Build and Push Docker Image') {
         // Stage 9: Deploy ArgoCD Application
 stage('Deploy ArgoCD Application') {
     steps {
-        timeout(time: 5, unit: 'MINUTES') { // Prevent indefinite hangs
+        timeout(time: 5, unit: 'MINUTES') { 
             container('kubectl') {
                 script {
                     echo "Deploying ArgoCD application..."
                      sh """
-                            mkdir -p /tmp/kubeconfig-writable
-                            cp /home/jenkins/.kube/kubeconfig /tmp/kubeconfig-writable/config
-                            chmod 600 /tmp/kubeconfig-writable/config
-                            export KUBECONFIG=/tmp/kubeconfig-writable/config
-                            kubectl config view
-                            kubectl get nodes
-                            kubectl apply -v=8 -f \${WORKSPACE}/springapp-helm/argocd-app.yaml -n argocd
+                            # mkdir -p /tmp/kubeconfig-writable
+                            # cp /home/jenkins/.kube/kubeconfig /tmp/kubeconfig-writable/config
+                            #chmod 600 /tmp/kubeconfig-writable/config
+                            #export KUBECONFIG=/tmp/kubeconfig-writable/config
+                             kubectl apply -v=8 -f \${WORKSPACE}/springapp-helm/argocd-app.yaml -n argocd --server-side --force-conflicts
             """
 
                 }
