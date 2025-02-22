@@ -18,6 +18,7 @@ pipeline {
         ARGOCD_APP_NAME = "springapp"
         KUBE_CONTEXT = 'kubernetes-admin@kubernetes'
         KUBECONFIG = "/home/jenkins/.kube/config"
+        ARGOCD_URL= "3.110.208.168:30421"
     }
 
     stages {
@@ -230,14 +231,8 @@ stage('Build and Push Docker Image') {
                     script {
                         echo "Syncing ArgoCD Application..."
                         withCredentials([string(credentialsId: 'ARGOCD_AUTH_TOKEN', variable: 'ARGOCD_TOKEN')]) {
-                            def ARGOCD_NODE_IP = sh(script: "kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type==\"InternalIP\")].address}'", returnStdout: true).trim()
-                            def ARGOCD_NODE_PORT = sh(script: "kubectl get svc -n argocd argocd-server -o jsonpath='{.spec.ports[?(@.name==\"http\")].nodePort}'", returnStdout: true).trim()
-                            
-                            def ARGOCD_SERVER = "${ARGOCD_NODE_IP}:${ARGOCD_NODE_PORT}"
-                            echo "ArgoCD Server: $ARGOCD_SERVER"
-
                             sh """
-                                argocd login $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
+                                argocd login $ARGOCD_URL --auth-token $ARGOCD_TOKEN --grpc-web
                                 argocd app sync ${ARGOCD_APP_NAME}
                                 argocd app wait ${ARGOCD_APP_NAME} --health
                             """
