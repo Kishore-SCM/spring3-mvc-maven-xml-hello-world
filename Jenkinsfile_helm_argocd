@@ -218,17 +218,6 @@ stage('Build and Push Docker Image') {
         }
     }
 }
-
-pipeline {
-    agent {
-        kubernetes {
-            yamlFile 'jenkins-agent.yaml' // Your YAML file with kubectl and argocd containers
-        }
-    }
-    environment {
-        KUBECONFIG = "/home/jenkins/.kube/config"
-    }
-    stages {
         stage('Deploy & Sync ArgoCD App') {
             steps {
                 container('kubectl') {
@@ -257,34 +246,8 @@ pipeline {
                 }
             }
         }
-    }
-}
+  }
 
-    stage('Sync ArgoCD Application') {
-    steps {
-        container('argocd') {
-            script {
-                echo "Syncing ArgoCD application..."
-
-                withCredentials([string(credentialsId: 'ARGOCD_AUTH_TOKEN', variable: 'ARGOCD_TOKEN')]) {
-                    sh """
-                        export ARGOCD_SERVER=<your-argocd-server>
-                        export ARGOCD_TOKEN=${ARGOCD_TOKEN}
-
-                        # Login using token
-                        argocd login $ARGOCD_SERVER --auth-token $ARGOCD_TOKEN --grpc-web
-
-                        # Sync application
-                        argocd app sync ${ARGOCD_APP_NAME}
-                        argocd app wait ${ARGOCD_APP_NAME} --health
-                    """
-                }
-            }
-        }
-    }
-}
-
-    }
 
     post {
         success {
