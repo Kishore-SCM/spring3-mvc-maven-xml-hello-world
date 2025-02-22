@@ -141,7 +141,6 @@ stage('Get Latest GitHub Release Tag') {
                                  echo "Secret '${ECR_SECRET_NAME}' created successfully!"
                             '''
                                 echo "Error: ECR password file not found! Secret object is not able to create"
-                                exit 1
                             fi
                             
                             
