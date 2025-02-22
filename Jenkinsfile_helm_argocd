@@ -65,9 +65,8 @@ pipeline {
                 }
             }
         }
-
-        // Stage 3: Get Latest GitHub Release Tag
-        stage('Get Latest GitHub Release Tag') {
+ // Stage 3: Get Latest GitHub Release Tag
+ stage('Get Latest GitHub Release Tag') {
             steps {
                 container('git') {
                     script {
