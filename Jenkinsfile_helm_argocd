@@ -15,7 +15,6 @@ pipeline {
         HELM_CHART_DIR = "springapp"
         HELM_VALUES_FILE = "values.yaml"
         ARGOCD_APP_NAME = "springapp"
-        KUBE_CONTEXT = 'kubernetes-admin@kubernetes'
         KUBECONFIG = "/home/jenkins/.kube/config"
         ARGOCD_URL= "3.110.208.168:30421"
         ECR_SECRET_NAME = "ecr-secret"
