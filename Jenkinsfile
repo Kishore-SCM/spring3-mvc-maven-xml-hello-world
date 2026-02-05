@@ -21,7 +21,7 @@ pipeline {
             steps {
                 script {
                     // Let's clone the source
-                    git 'https://github.com/Kishore-SCM/spring3-mvc-maven-xml-hello-world.git';
+                    git credentialsId: 'git_cred', url: 'https://github.com/Kishore-SCM/spring3-mvc-maven-xml-hello-world.git'
                 }
             }
         }
